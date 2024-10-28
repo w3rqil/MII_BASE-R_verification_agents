@@ -6,7 +6,6 @@ module EthernetFrameGenerator_tb;
     */
     parameter int IDLE_CYCLES = 12          ;   //! Idle length
     parameter int PREAMBLE_CYCLES = 7       ;   //! Preamble length
-    parameter int SFD_CYCLES = 1            ;   //! SFD length
     parameter int DST_ADDR_CYCLES = 6       ;   
     parameter int SRC_ADDR_CYCLES = 6       ;
     parameter int LEN_TYP_CYCLES = 2        ;
@@ -40,7 +39,6 @@ module EthernetFrameGenerator_tb;
     #(
         .IDLE_CYCLES(IDLE_CYCLES),
         .PREAMBLE_CYCLES(PREAMBLE_CYCLES),
-        .SFD_CYCLES(SFD_CYCLES),
         .DST_ADDR_CYCLES(DST_ADDR_CYCLES),
         .SRC_ADDR_CYCLES(SRC_ADDR_CYCLES),
         .LEN_TYP_CYCLES(LEN_TYP_CYCLES),
@@ -78,7 +76,6 @@ module EthernetFrameGenerator_tb;
         $dumpvars;
 
         // Monitor outputs
-        $display("Out: %h", o_tx_data);
         $monitor("Time: %0t, o_tx_data: %h, o_tx_ctrl: %b",
                  $time, o_tx_data, o_tx_ctrl);
 

@@ -5,19 +5,18 @@ module EthernetFrameGenerator
     /*
     *---------CYCLES---------
     */
-    parameter int IDLE_CYCLES = 12          ,   //! Idle length
-    parameter int PREAMBLE_CYCLES = 7       ,   //! Preamble length
-    parameter int SFD_CYCLES = 1            ,   //! SFD length
+    parameter int IDLE_CYCLES = 12          ,   //! Idle length 
+    parameter int PREAMBLE_CYCLES = 6       ,   //! Preamble length
     parameter int DST_ADDR_CYCLES = 6       ,   
     parameter int SRC_ADDR_CYCLES = 6       ,
     parameter int LEN_TYP_CYCLES = 2        ,
-    parameter int FCS_CYCLES = 4            ,
     parameter int DATA_CYCLES = 46          ,   //! Data length
+    parameter int FCS_CYCLES = 4            ,
     /*
     *---------CODES---------
     */
     parameter [7:0] IDLE_CODE = 8'h07       ,
-    parameter [7:0] START_CODE = 8'hFB      ,   //! No se usa
+    parameter [7:0] START_CODE = 8'hFB      ,
     parameter [7:0] PREAMBLE_CODE = 8'h55   ,
     parameter [7:0] SFD_CODE = 8'hD5        ,
     parameter [7:0] DST_ADDR_CODE = 8'h01   ,
@@ -32,25 +31,26 @@ module EthernetFrameGenerator
     input  logic        i_start        ,   //! Signal to start frame transmission
     input  logic [7:0]  i_interrupt    ,   //! Interrupt the frame into different scenarios
     output logic [7:0]  o_tx_data      ,   //! Transmitted data (8 bits per cycle)
-    output logic [7:0]  o_tx_ctrl          //! Transmit control signal (indicates valid data)
+    output logic        o_tx_ctrl          //! Transmit control signal (indicates valid data)
 );
 
     // Parameters for frame sections
-    localparam int FRAME_SIZE = IDLE_CYCLES + PREAMBLE_CYCLES + SFD_CYCLES + DATA_CYCLES;
-    localparam [7:0] 
+    //localparam int FRAME_SIZE = IDLE_CYCLES + PREAMBLE_CYCLES + SFD_CYCLES + DATA_CYCLES;
+    localparam [7:0]
                     DATA_CHAR_PATTERN = 8'hAA,
                     CTRL_CHAR_PATTERN = 8'h55;
 
     localparam [3:0]
                     IDLE        = 0,
-                    PREAMBLE    = 1,
-                    SFD         = 2,
-                    DST_ADDR    = 3,
-                    SRC_ADDR    = 4,
-                    LEN_TYP     = 5,
-                    DATA        = 6,
-                    FCS         = 7,
-                    EOF         = 8;
+                    START       = 1,
+                    PREAMBLE    = 2,
+                    SFD         = 3,
+                    DST_ADDR    = 4,
+                    SRC_ADDR    = 5,
+                    LEN_TYP     = 6,
+                    DATA        = 7,
+                    FCS         = 8,
+                    EOF         = 9;
 
     localparam [7:0] 
                     STOP_TX     = 8'h01,
@@ -77,11 +77,26 @@ module EthernetFrameGenerator
     logic [6:0] next_counter;
 
     // TXC
-    logic [7:0] tx_ctrl;
-    logic [7:0] next_tx_ctrl;
+    logic       tx_ctrl;
+    logic       next_tx_ctrl;
 
     // Random
     int random_num;
+
+    function automatic void handle_state(
+        input logic [7:0] i_code        , // Transmit code
+        input int         i_cycle_limit , // Cycles to change state
+        input logic [3:0] i_next_st       // Next state
+    );
+        next_tx_data = i_code;
+        if (counter < (i_cycle_limit - 1)) begin
+            next_counter = counter + 1;
+            next_state   = state;         // Mantener el mismo estado hasta cumplir con el ciclo
+        end else begin
+            next_counter = 0;
+            next_state   = i_next_st;     // Cambiar al próximo estado
+        end
+    endfunction
 
     // Initialize frame content
     always_comb begin
@@ -89,27 +104,28 @@ module EthernetFrameGenerator
         next_state = state                                                          ;
         next_tx_data = tx_data                                                      ;
 
-        case (state) 
+        case (state)
             IDLE: begin
                 if(!i_start) begin
                     next_tx_data    = IDLE_CODE                                     ;
+                    next_tx_ctrl    = 1'b1                                          ;
                     next_state      = IDLE                                          ;
                 end else begin                                  
-                    next_state      = PREAMBLE                                      ;
+                    next_state      = START                                         ;
                     next_counter    = 0                                             ;
                 end
             end
 
+            START: begin
+                next_tx_data    = START_CODE                                        ;
+                next_tx_ctrl    = 1'b0                                              ;
+                next_state      = PREAMBLE                                          ;
+                next_counter    = 0                                                 ;
+            end
+
             PREAMBLE: begin
                 //frame[0] = PREAMBLE_CODE;
-                if(counter < (PREAMBLE_CYCLES-1)) begin
-                    next_tx_data = PREAMBLE_CODE                                    ;
-                    next_counter = counter + 1                                      ;
-                    next_state   = PREAMBLE                                         ;
-                end else begin                                  
-                    next_state = SFD                                                ;
-                    next_counter = 0                                                ;
-                end
+                handle_state(PREAMBLE_CODE, PREAMBLE_CYCLES, SFD)                   ;
             end
 
             SFD: begin
@@ -120,36 +136,15 @@ module EthernetFrameGenerator
             end
 
             DST_ADDR: begin
-                if(counter < (DST_ADDR_CYCLES-1)) begin
-                    next_tx_data = DST_ADDR_CODE                                    ;
-                    next_counter = counter + 1                                      ;
-                    next_state   = DST_ADDR                                         ;
-                end else begin
-                    next_state   = SRC_ADDR                                         ;
-                    next_counter = 0                                                ;
-                end
+                handle_state(DST_ADDR_CODE, DST_ADDR_CYCLES, SRC_ADDR)              ;
             end
 
             SRC_ADDR: begin
-                if(counter < (SRC_ADDR_CYCLES-1)) begin
-                    next_tx_data = SRC_ADDR_CODE                                    ;
-                    next_counter = counter + 1                                      ;
-                    next_state   = SRC_ADDR                                         ;
-                end else begin
-                    next_state   = LEN_TYP                                          ;
-                    next_counter = 0                                                ;
-                end
+                handle_state(SRC_ADDR_CODE, SRC_ADDR_CYCLES, LEN_TYP)               ;
             end
 
             LEN_TYP: begin
-                if(counter < (LEN_TYP_CYCLES-1)) begin
-                    next_tx_data = LEN_TYP_CODE                                     ;
-                    next_counter = counter + 1                                      ;
-                    next_state   = LEN_TYP                                          ;
-                end else begin
-                    next_state   = DATA                                             ;
-                    next_counter = 0                                                ;
-                end
+                handle_state(LEN_TYP_CODE, LEN_TYP_CYCLES, DATA)                    ;
             end
 
             DATA: begin
@@ -158,6 +153,7 @@ module EthernetFrameGenerator
                         next_tx_data = 8'h00                                        ;    
                     end else begin
                         next_tx_data = DATA_CHAR_PATTERN                            ;
+                        next_tx_data = $urandom_range(0,255)                        ;
                     end
                     next_counter = counter + 1                                      ;
                     next_state   = DATA                                             ;
@@ -168,14 +164,7 @@ module EthernetFrameGenerator
             end
 
             FCS: begin
-                if(counter < (FCS_CYCLES-1)) begin
-                    next_tx_data = FCS_CODE                                         ;
-                    next_counter = counter + 1                                      ;
-                    next_state   = FCS                                              ;
-                end else begin
-                    next_state   = EOF                                              ;
-                    next_counter = 0                                                ;
-                end
+                handle_state(FCS_CODE, FCS_CYCLES, EOF)                             ;
             end
 
             EOF: begin
