@@ -1,7 +1,12 @@
-`timescale 1ns/100ps
+ `timescale 1ns/100ps
 
 module EthernetFrameGenerator 
 #(
+    /*
+    *---------WIDTH---------
+    */
+    parameter int DATA_WIDTH = 64,
+    parameter int CTRL_WIDTH = DATA_WIDTH / 8,
     /*
     *---------CYCLES---------
     */
@@ -24,18 +29,22 @@ module EthernetFrameGenerator
     parameter [7:0] LEN_TYP_CODE = 8'h03    ,
     parameter [7:0] FCS_CODE = 8'h04        ,
     parameter [7:0] TERMINATE_CODE = 8'hFD
-)
-(
-    input  logic        clk            ,   //! Clock input
-    input  logic        i_rst          ,   //! Asynchronous reset
-    input  logic        i_start        ,   //! Signal to start frame transmission
-    input  logic [7:0]  i_interrupt    ,   //! Interrupt the frame into different scenarios
-    output logic [7:0]  o_tx_data      ,   //! Transmitted data (8 bits per cycle)
-    output logic        o_tx_ctrl          //! Transmit control signal (indicates valid data)
-);
+    )
+    (
+    input  logic                    clk            ,   //! Clock input
+    input  logic                    i_rst          ,   //! Asynchronous reset
+    input  logic                    i_start        ,   //! Signal to start frame transmission
+    input  logic [7:0]              i_interrupt    ,   //! Interrupt the frame into different scenarios
+    output logic [7:0]              o_tx_data      ,   //! Transmitted data (8 bits per cycle)
+    output logic                    o_tx_ctrl      ,   //! Transmit control signal (indicates valid data)
+    output logic [DATA_WIDTH-1:0]   o_tx_data_block,
+    output logic [CTRL_WIDTH-1:0]   o_tx_ctrl_block
+    );
 
     // Parameters for frame sections
-    //localparam int FRAME_SIZE = IDLE_CYCLES + PREAMBLE_CYCLES + SFD_CYCLES + DATA_CYCLES;
+    localparam int PACKET_SIZE = IDLE_CYCLES + PREAMBLE_CYCLES + DST_ADDR_CYCLES + SRC_ADDR_CYCLES
+                                + LEN_TYP_CYCLES + DATA_CYCLES + FCS_CYCLES;
+
     localparam [7:0]
                     DATA_CHAR_PATTERN = 8'hAA,
                     CTRL_CHAR_PATTERN = 8'h55;
@@ -79,6 +88,15 @@ module EthernetFrameGenerator
     // TXC
     logic       tx_ctrl;
     logic       next_tx_ctrl;
+
+    // Data block
+    logic [DATA_WIDTH-1:0] tx_data_block;
+    logic [DATA_WIDTH-1:0] next_tx_data_block;
+    
+    // Ctrl block
+    logic [CTRL_WIDTH-1:0] tx_ctrl_block;
+    logic [CTRL_WIDTH-1:0] next_tx_ctrl_block;
+
 
     // Random
     int random_num;
@@ -148,15 +166,16 @@ module EthernetFrameGenerator
             end
 
             DATA: begin
+                if(i_interrupt == STOP_DATA) begin             
+                    next_tx_data = 8'h00                                        ;    
+                end else begin
+                    next_tx_data = DATA_CHAR_PATTERN                            ;
+                    //next_tx_data = $urandom_range(0,255)                        ;
+                end
+
                 if(counter < (DATA_CYCLES-1)) begin
-                    if(i_interrupt == STOP_DATA) begin             
-                        next_tx_data = 8'h00                                        ;    
-                    end else begin
-                        next_tx_data = DATA_CHAR_PATTERN                            ;
-                        next_tx_data = $urandom_range(0,255)                        ;
-                    end
-                    next_counter = counter + 1                                      ;
                     next_state   = DATA                                             ;
+                    next_counter = counter + 1                                      ;
                 end else begin
                     next_state = FCS                                                ;
                     next_counter = 0                                                ;
@@ -196,11 +215,11 @@ module EthernetFrameGenerator
         end
 
     end
-    
+
     // Asignar los datos transmitidos y la señal de control
     assign o_tx_data = tx_data;
     assign o_tx_ctrl = tx_ctrl;
     //assign tx_data = (transmitting && frame_index < FRAME_SIZE) ? frame[frame_index] : 8'd0;
     //assign tx_ctrl = (transmitting && frame_index < FRAME_SIZE) ? 1'b1 : 1'b0; // Control signal indicating valid data
-    
+
 endmodule
