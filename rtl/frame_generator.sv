@@ -28,7 +28,7 @@ module EthernetFrameGenerator
     parameter [47:0] DST_ADDR_CODE = 48'h0180C2000001   ,
     parameter [47:0] SRC_ADDR_CODE = 48'h5A5152535455   ,
     parameter [15:0] LEN_TYP_CODE = 16'h8808            ,
-    parameter [31:0] FCS_CODE = 8'hC0C0C0C0             ,
+    parameter [7:0] FCS_CODE = 8'hC0             ,
     parameter [7:0] TERMINATE_CODE = 8'hFD
     )
     (
@@ -68,17 +68,9 @@ module EthernetFrameGenerator
     logic [3:0] state;
     logic [3:0] next_state;
 
-    // TXD Characters 
-    logic [7:0] tx_data;
-    logic [7:0] next_tx_data;
-
     // Counter
-    logic [6:0] counter;
-    logic [6:0] next_counter;
-
-    // TXC
-    logic       tx_ctrl;
-    logic       next_tx_ctrl;
+    logic [7:0] counter;
+    logic [7:0] next_counter;
 
     // Data block
     logic [DATA_WIDTH-1:0] tx_data_block;
@@ -92,97 +84,77 @@ module EthernetFrameGenerator
     assign o_tx_data = tx_data_block;
     assign o_tx_ctrl = tx_ctrl_block;
 
-    // Function to handle state transitions
-    function automatic void handle_state(
-        input logic [7:0] i_code        , // Transmit code
-        input int         i_cycle_limit , // Cycles to change state
-        input logic [3:0] i_next_st       // Next state
-    );
-        next_tx_data = i_code;
-        if (counter < (i_cycle_limit - 1)) begin
-            next_counter = counter + 1;
-            next_state   = state;         // Mantener el mismo estado hasta cumplir con el ciclo
-        end else begin
-            next_counter = 0;
-            next_state   = i_next_st;     // Cambiar al próximo estado
-        end
-    endfunction
-
     // Initialize frame content
     always_comb begin
         next_counter = counter;
         next_state = state;
-        next_tx_data = tx_data;
         next_tx_data_block = tx_data_block;
         next_tx_ctrl_block = tx_ctrl_block;
 
         case (state)
             IDLE: begin
                 if(!i_start) begin
-                    next_tx_data_block    = {8{IDLE_CODE}};
-                    next_tx_ctrl_block    = 8'hFF; // All bytes are control bytes (IDLE)
+                    next_tx_data_block = {8{IDLE_CODE}};
+                    next_tx_ctrl_block = 8'hFF; // All bytes are control bytes (IDLE)
                     next_state            = IDLE;
                 end else begin                                  
-                    next_state            = START;
-                    next_counter          = 0;
+                    next_state = START;
+                    next_counter = 0;
                 end
             end
 
             START: begin
-                next_tx_data_block    = {START_CODE, {7{IDLE_CODE}}};
-                next_tx_ctrl_block    = 8'b00000001; // Only the first byte is data (START)
-                next_state            = PREAMBLE;
-                next_counter          = 0;
+                next_tx_data_block = {START_CODE, {7{IDLE_CODE}}};
+                next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (START)
+                next_state = PREAMBLE;
+                next_counter = 0;
             end
 
             PREAMBLE: begin
-                handle_state(PREAMBLE_CODE, PREAMBLE_CYCLES, SFD);
-                next_tx_ctrl_block = 8'h00; // All bytes are data bytes (PREAMBLE)
-            end
-
-            SFD: begin
-                next_tx_data_block = {SFD_CODE, {7{PREAMBLE_CODE}}};
-                next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (SFD)
+                next_tx_data_block = {{6{PREAMBLE_CODE}}, SFD_CODE, IDLE_CODE};
+                next_tx_ctrl_block = 8'b00000000; // All bytes are data bytes (PREAMBLE)
                 next_state = DST_ADDR;
                 next_counter = 0;
             end
 
             DST_ADDR: begin
-                handle_state(DST_ADDR_CODE, DST_ADDR_CYCLES, SRC_ADDR);
-                next_tx_ctrl_block = 8'h00; // All bytes are data bytes (DST_ADDR)
+                
+                    next_tx_data_block = {DST_ADDR_CODE[47:40], DST_ADDR_CODE[39:32], DST_ADDR_CODE[31:24], DST_ADDR_CODE[23:16], DST_ADDR_CODE[15:8], DST_ADDR_CODE[7:0], SRC_ADDR_CODE[47:40], SRC_ADDR_CODE[39:32]};
+                    next_tx_ctrl_block = 8'b00000000;
+                    next_counter = counter + 1;
+                
+                    next_state = SRC_ADDR;
+                    next_counter = 0;
+                
             end
 
             SRC_ADDR: begin
-                handle_state(SRC_ADDR_CODE, SRC_ADDR_CYCLES, LEN_TYP);
-                next_tx_ctrl_block = 8'h00; // All bytes are data bytes (SRC_ADDR)
-            end
+                
+                    next_tx_data_block = {SRC_ADDR_CODE[31:24], SRC_ADDR_CODE[23:16], SRC_ADDR_CODE[15:8], SRC_ADDR_CODE[7:0], LEN_TYP_CODE[15:8], LEN_TYP_CODE[7:0], {2{DATA_CHAR_PATTERN}}};
+                    next_tx_ctrl_block = 8'b00000000;
+                    next_counter = counter + 1;
 
-            LEN_TYP: begin
-                handle_state(LEN_TYP_CODE, LEN_TYP_CYCLES, DATA);
-                next_tx_ctrl_block = 8'h00; // All bytes are data bytes (LEN_TYP)
+                    next_state = DATA;
+                    next_counter = 2;
+                
             end
 
             DATA: begin
-                if(i_interrupt == STOP_DATA) begin             
-                    next_tx_data_block = {8{8'h00}};    
-                end else begin
-                    next_tx_data_block = {8{DATA_CHAR_PATTERN}};
-                end
 
-                if(counter < (DATA_CYCLES-1)) begin
-                    next_state   = DATA;
-                    next_counter = counter + 1;
+                if (counter < (DATA_CYCLES - 4)) begin //-4 para ayudar con la logica
+                    if (i_interrupt == STOP_DATA) begin
+                        next_tx_data_block = {8{8'h00}};
+                    end else begin
+                        next_tx_data_block = {8{DATA_CHAR_PATTERN}};
+                    end
+                    next_state = DATA;
+                    next_counter = counter + 8;
                 end else begin
-                    next_state = FCS;
+                    next_tx_data_block = {{4{DATA_CHAR_PATTERN}}, {4{FCS_CODE}}};
+                    next_state = EOF;
                     next_counter = 0;
                 end
             end
-
-            FCS: begin
-                handle_state(FCS_CODE, FCS_CYCLES, EOF);
-                next_tx_ctrl_block = 8'h00; // All bytes are data bytes (FCS)
-            end
-
             EOF: begin
                 next_tx_data_block = {TERMINATE_CODE, {7{IDLE_CODE}}};
                 next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (TERMINATE)
