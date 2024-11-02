@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-module EthernetFrameGenerator 
+module frame_generator 
 #(
     /*
     *---------WIDTH---------
