@@ -6,9 +6,9 @@ module BASER_257b_checker
     *---------WIDTH---------
     */
     parameter int   DATA_WIDTH          = 64                        ,
-    parameter int   TC_DATA_WIDTH       = 4 * DATA_WIDTH            ,
+    parameter int   TC_DATA_WIDTH       = 4 * DATA_WIDTH            ,   //! 256 bits transcoded blocks (without header)
     parameter int   SH_WIDTH            = 1                         ,
-    parameter int   TC_WIDTH            = TC_DATA_WIDTH + SH_WIDTH
+    parameter int   TC_WIDTH            = TC_DATA_WIDTH + SH_WIDTH      //! 257 bits transcoded blocks
     /*
     *------BLOCK TYPE-------
     */
@@ -24,11 +24,13 @@ module BASER_257b_checker
     output int                      o_ctrl_count    ,   //! Total number of 257b blocks with at least one 64b control block received
 );
 
-    // Counters
+    // Total blocks counter
     int block_count;
     int next_block_count;
+    // Data blocks counter
     int data_count;
     int next_data_count;
+    // Ctrl blocks counter
     int ctrl_count;
     int next_ctrl_count;
 
