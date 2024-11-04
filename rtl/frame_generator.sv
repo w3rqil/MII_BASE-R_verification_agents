@@ -28,7 +28,7 @@ module frame_generator
     parameter [47:0] DST_ADDR_CODE = 48'h0180C2000001   ,
     parameter [47:0] SRC_ADDR_CODE = 48'h5A5152535455   ,
     parameter [15:0] LEN_TYP_CODE = 16'h8808            ,
-    parameter [7:0] FCS_CODE = 8'hC0             ,
+    parameter [7:0] FCS_CODE = 8'hC0                    ,
     parameter [7:0] TERMINATE_CODE = 8'hFD
     )
     (
@@ -104,38 +104,38 @@ module frame_generator
             end
 
             START: begin
-                next_tx_data_block = {START_CODE, {7{IDLE_CODE}}};
+                next_tx_data_block = {SFD_CODE, {6{PREAMBLE_CODE}}, START_CODE};
                 next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (START)
-                next_state = PREAMBLE;
+                next_state = DST_ADDR;
                 next_counter = 0;
             end
-
+            /*
             PREAMBLE: begin
                 next_tx_data_block = {{6{PREAMBLE_CODE}}, SFD_CODE, IDLE_CODE};
                 next_tx_ctrl_block = 8'b00000000; // All bytes are data bytes (PREAMBLE)
                 next_state = DST_ADDR;
                 next_counter = 0;
             end
-
+            */
             DST_ADDR: begin
                 
-                    next_tx_data_block = {DST_ADDR_CODE[47:40], DST_ADDR_CODE[39:32], DST_ADDR_CODE[31:24], DST_ADDR_CODE[23:16], DST_ADDR_CODE[15:8], DST_ADDR_CODE[7:0], SRC_ADDR_CODE[47:40], SRC_ADDR_CODE[39:32]};
-                    next_tx_ctrl_block = 8'b00000000;
-                    next_counter = counter + 1;
-                
-                    next_state = SRC_ADDR;
-                    next_counter = 0;
+                next_tx_data_block = {SRC_ADDR_CODE[15:0], DST_ADDR_CODE};
+                next_tx_ctrl_block = 8'b00000000;
+                next_counter = counter + 1;
+            
+                next_state = SRC_ADDR;
+                next_counter = 0;
                 
             end
 
             SRC_ADDR: begin
                 
-                    next_tx_data_block = {SRC_ADDR_CODE[31:24], SRC_ADDR_CODE[23:16], SRC_ADDR_CODE[15:8], SRC_ADDR_CODE[7:0], LEN_TYP_CODE[15:8], LEN_TYP_CODE[7:0], {2{DATA_CHAR_PATTERN}}};
-                    next_tx_ctrl_block = 8'b00000000;
-                    next_counter = counter + 1;
+                next_tx_data_block = {{2{DATA_CHAR_PATTERN}}, LEN_TYP_CODE, SRC_ADDR_CODE[47:16]};
+                next_tx_ctrl_block = 8'b00000000;
+                next_counter = counter + 1;
 
-                    next_state = DATA;
-                    next_counter = 2;
+                next_state = DATA;
+                next_counter = 2;
                 
             end
 
@@ -150,13 +150,13 @@ module frame_generator
                     next_state = DATA;
                     next_counter = counter + 8;
                 end else begin
-                    next_tx_data_block = {{4{DATA_CHAR_PATTERN}}, {4{FCS_CODE}}};
+                    next_tx_data_block = {{4{FCS_CODE}}, {4{DATA_CHAR_PATTERN}}};
                     next_state = EOF;
                     next_counter = 0;
                 end
             end
             EOF: begin
-                next_tx_data_block = {TERMINATE_CODE, {7{IDLE_CODE}}};
+                next_tx_data_block = {{7{IDLE_CODE}}, TERMINATE_CODE};
                 next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (TERMINATE)
                 next_state = IDLE;
                 next_counter = 0;

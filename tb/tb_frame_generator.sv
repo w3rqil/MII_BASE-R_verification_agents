@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-module EthernetFrameGenerator_tb;
+module frame_generator_tb;
 
     // Parameters
     parameter DATA_WIDTH = 64;
@@ -15,7 +15,7 @@ module EthernetFrameGenerator_tb;
     logic [CTRL_WIDTH-1:0] o_tx_ctrl;
 
     // Instantiate the EthernetFrameGenerator module
-    EthernetFrameGenerator #(
+    frame_genetator #(
         .DATA_WIDTH(DATA_WIDTH),
         .CTRL_WIDTH(CTRL_WIDTH)
     ) dut (
