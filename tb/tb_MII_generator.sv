@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-module EthernetFrameGenerator_tb;
+module MII_generator_tb;
     /*
     *---------CYCLES---------
     */
@@ -35,39 +35,35 @@ module EthernetFrameGenerator_tb;
     logic [7:0] o_tx_ctrl;  //! Transmit control signal (indicates valid data)
 
     // Instantiate the EthernetFrameGenerator
-    EthernetFrameGenerator 
-    #(
-        .IDLE_CYCLES(IDLE_CYCLES),
-        .PREAMBLE_CYCLES(PREAMBLE_CYCLES),
-        .DST_ADDR_CYCLES(DST_ADDR_CYCLES),
-        .SRC_ADDR_CYCLES(SRC_ADDR_CYCLES),
-        .LEN_TYP_CYCLES(LEN_TYP_CYCLES),
-        .DATA_CYCLES(DATA_CYCLES),
-        .FCS_CYCLES(FCS_CYCLES),
-        .IDLE_CODE(IDLE_CODE),
-        .START_CODE(START_CODE),
-        .PREAMBLE_CODE(PREAMBLE_CODE),
-        .SFD_CODE(SFD_CODE),
-        .DST_ADDR_CODE(DST_ADDR_CODE),
-        .SRC_ADDR_CODE(SRC_ADDR_CODE),
-        .LEN_TYP_CODE(LEN_TYP_CODE),
-        .FCS_CODE(FCS_CODE),
-        .TERMINATE_CODE(TERMINATE_CODE)
+    MII_generator #(
+        .IDLE_CYCLES     (IDLE_CYCLES)     ,
+        .PREAMBLE_CYCLES (PREAMBLE_CYCLES) ,
+        .DST_ADDR_CYCLES (DST_ADDR_CYCLES) ,
+        .SRC_ADDR_CYCLES (SRC_ADDR_CYCLES) ,
+        .LEN_TYP_CYCLES  (LEN_TYP_CYCLES)  ,
+        .DATA_CYCLES     (DATA_CYCLES)     ,
+        .FCS_CYCLES      (FCS_CYCLES)      ,
+        .IDLE_CODE       (IDLE_CODE)       ,
+        .START_CODE      (START_CODE)      ,
+        .PREAMBLE_CODE   (PREAMBLE_CODE)   ,
+        .SFD_CODE        (SFD_CODE)        ,
+        .DST_ADDR_CODE   (DST_ADDR_CODE)   ,
+        .SRC_ADDR_CODE   (SRC_ADDR_CODE)   ,
+        .LEN_TYP_CODE    (LEN_TYP_CODE)    ,
+        .FCS_CODE        (FCS_CODE)        ,
+        .TERMINATE_CODE  (TERMINATE_CODE)
     
-    )dut (
-        .clk(clk),
-        .i_rst(i_rst),
-        .i_start(i_start),
-        .i_interrupt(i_interrupt),
-        .o_tx_data(o_tx_data),
-        .o_tx_ctrl(o_tx_ctrl)
+    ) dut (
+        .clk             (clk)             ,
+        .i_rst           (i_rst)           ,
+        .i_start         (i_start)         ,
+        .i_interrupt     (i_interrupt)     ,
+        .o_tx_data       (o_tx_data)       ,
+        .o_tx_ctrl       (o_tx_ctrl)
     );
 
     // Clock generation
-    initial begin
-        clk = 0;
-        forever #5 clk = ~clk; // 100 MHz clock
-    end
+    always #5 clk = ~clk; // 100 MHz clock
 
     // Test sequence
     initial begin
@@ -78,9 +74,10 @@ module EthernetFrameGenerator_tb;
         // Monitor outputs
         $monitor("Time: %0t, o_tx_data: %h, o_tx_ctrl: %b",
                  $time, o_tx_data, o_tx_ctrl);
-
-        i_rst = 1;
-        i_start = 0;
+                 
+        i_rst       = 1;
+        clk         = 0;
+        i_start     = 0;
         i_interrupt = 0;
 
         #200;

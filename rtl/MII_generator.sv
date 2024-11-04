@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-module EthernetFrameGenerator 
+module MII_generator 
 #(
     /*
     *---------WIDTH---------
@@ -26,12 +26,7 @@ module EthernetFrameGenerator
     input  logic [7:0]              i_interrupt    ,   //! Interrupt the frame into different scenarios
     output logic [7:0]              o_tx_data      ,   //! Transmitted data (8 bits per cycle)
     output logic                    o_tx_ctrl      ,   //! Transmit control signal (indicates valid data)
-    output logic [DATA_WIDTH-1:0]   o_tx_data_block,
-    output logic [CTRL_WIDTH-1:0]   o_tx_ctrl_block
     );
-
-    // Parameters for frame sections
-    localparam int TOTAL_SIZE = IDLE_LENGTH + DATA_LENGTH;
 
     localparam [7:0]
                     DATA_CHAR_PATTERN = 8'hAA,
@@ -48,8 +43,8 @@ module EthernetFrameGenerator
                     STOP_DATA   = 8'h02;
     
     // State
-    logic [3:0] state;
-    logic [3:0] next_state;
+    state_t     state;
+    state_t     next_state;
 
     // TXD Characters 
     logic [7:0] tx_data;
@@ -63,24 +58,14 @@ module EthernetFrameGenerator
     logic       tx_ctrl;
     logic       next_tx_ctrl;
 
-    // Data block
-    logic [DATA_WIDTH-1:0] tx_data_block;
-    logic [DATA_WIDTH-1:0] next_tx_data_block;
-    
-    // Ctrl block
-    logic [CTRL_WIDTH-1:0] tx_ctrl_block;
-    logic [CTRL_WIDTH-1:0] next_tx_ctrl_block;
-
-
-    // Random
-    int random_num;
-
     function automatic void handle_state(
-        input logic [7:0] i_code        , // Transmit code
+        input logic [7:0] i_data        , // Transmit code
+        input logic       i_ctrl        , // Control bit
         input int         i_cycle_limit , // Cycles to change state
-        input logic [3:0] i_next_st       // Next state
+        input state_t     i_next_st       // Next state
     );
-        next_tx_data = i_code;
+        next_tx_data = i_data;
+        next_tx_ctrl = i_ctrl;
         if (counter < (i_cycle_limit - 1)) begin
             next_counter = counter + 1;
             next_state   = state;         // Mantener el mismo estado hasta cumplir con el ciclo
@@ -90,19 +75,53 @@ module EthernetFrameGenerator
         end
     endfunction
 
-    always_comb begin : block_insert
-        for (int i = 0; i < TOTAL_SIZE; i++) begin
-            if(i < IDLE_LENGTH) begin
-                next_tx_data = IDLE_CODE;
-                next_tx_ctrl = 1'b1;
-                i++;
+    always_comb begin
+
+        case (state)
+
+            IDLE: begin
+                if(!i_start) begin
+                    next_tx_data    = IDLE_CODE                                     ;
+                    next_tx_ctrl    = 1'b1                                          ;
+                    next_state      = IDLE                                          ;
+                end else begin                                  
+                    next_state      = START                                         ;
+                    next_counter    = 0                                             ;
+                end
             end
-            else if (i < DATA_LENGTH) begin
-                next_tx_data = DATA_CHAR_PATTERN;
-                next_tx_ctrl = 1'b0;
-                i++;
+
+            START: begin
+                handle_state(START_CODE, 1'b1, 1, DATA);
             end
-        end
+
+            DATA: begin
+                if(i_interrupt == STOP_DATA) begin             
+                    next_tx_data = 8'h00                                        ;    
+                end else begin
+                    next_tx_data = DATA_CHAR_PATTERN                            ;
+                    //next_tx_data = $urandom_range(0,255)                        ;
+                end
+
+                if(counter < (DATA_CYCLES-1)) begin
+                    next_state   = DATA                                             ;
+                    next_counter = counter + 1                                      ;
+                end else begin
+                    next_state = FCS                                                ;
+                    next_counter = 0                                                ;
+                end
+            end
+
+            EOF: begin
+                handle_state(EOF_CODE, 1'b1, 1, IDLE);
+            end
+
+            default: begin
+                next_tx_data = 8'h00;
+                next_tx_ctrl = 8'h00;
+                next_counter = 0;
+                next_state = IDLE;
+            end
+        endcase
     end
 
     // Control de transmisión de frames
@@ -125,7 +144,5 @@ module EthernetFrameGenerator
     // Asignar los datos transmitidos y la señal de control
     assign o_tx_data = tx_data;
     assign o_tx_ctrl = tx_ctrl;
-    //assign tx_data = (transmitting && frame_index < FRAME_SIZE) ? frame[frame_index] : 8'd0;
-    //assign tx_ctrl = (transmitting && frame_index < FRAME_SIZE) ? 1'b1 : 1'b0; // Control signal indicating valid data
 
 endmodule
