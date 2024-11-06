@@ -42,7 +42,37 @@ module BASER_257b_checker
             next_ctrl_count = ctrl_count;
         end
         // At least one ctrl block
-        else begin
+        else begin 
+            case (i_tx_coded[4:1])
+                4'h0: begin
+                    
+                end 
+                4'h1: begin
+                    
+                end 
+                4'h2: begin
+                    
+                end 
+                4'h3: begin
+                    
+                end 
+                4'h4: begin
+                    
+                end 
+                4'h5: begin
+                    
+                end 
+                4'h6: begin
+                    
+                end 
+                4'h7: begin
+                    
+                end 
+                default: begin
+                    
+                end
+            endcase
+            
             next_block_count = block_count + 1;
             next_data_count = data_count;
             next_ctrl_count = ctrl_count + 1;

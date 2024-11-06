@@ -1,5 +1,6 @@
 `timescale 1ns/100ps
 
+// 07070707 - fbaaaaaa - 
 module MII_generator 
 #(
     /*
@@ -20,7 +21,7 @@ module MII_generator
     parameter [7:0] TERMINATE_CODE = 8'hFD
     )
     (
-    input  logic                    clk            ,   //! Clock input
+    input  logic                    tx_clk            ,   //! Clock input
     input  logic                    i_rst          ,   //! Asynchronous reset
     input  logic                    i_start        ,   //! Signal to start frame transmission
     input  logic [7:0]              i_interrupt    ,   //! Interrupt the frame into different scenarios
@@ -106,7 +107,7 @@ module MII_generator
                     next_state   = DATA                                             ;
                     next_counter = counter + 1                                      ;
                 end else begin
-                    next_state = FCS                                                ;
+                    next_state = EOF                                                ;
                     next_counter = 0                                                ;
                 end
             end
@@ -125,7 +126,7 @@ module MII_generator
     end
 
     // Control de transmisión de frames
-    always_ff @(posedge clk or posedge i_rst) begin
+    always_ff @(posedge tx_clk or posedge i_rst) begin
         if (i_rst) begin 
             tx_data     <= 8'd0                                                     ;
             tx_ctrl    <= 8'd0                                                     ;
