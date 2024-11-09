@@ -13,12 +13,11 @@ module BASER_257b_scrambled_checker
     *------BLOCK TYPE-------
     */
     parameter       SYNC_HEADER         = 1'b1
-    // parameter       DATA_CHAR_PATTERN   = 8'hAA
 )
 (
     input  logic                    clk             ,   //! Clock input
     input  logic                    i_rst           ,   //! Asynchronous reset
-    input  logic    [TC_WIDTH-1:0]  i_tx_coded      ,   //! Received data
+    input  logic    [TC_WIDTH-1:0]  i_tx_scrambled  ,   //! Received data
     output logic    [31:0]          o_block_count   ,   //! Total number of 257b blocks received
     output logic    [31:0]          o_data_count    ,   //! Total number of 257b blocks with all 64b data block received
     output logic    [31:0]          o_ctrl_count        //! Total number of 257b blocks with at least one 64b control block received
@@ -38,7 +37,7 @@ module BASER_257b_scrambled_checker
         next_block_count = block_count + 1;
         
         // All data blocks
-        if(i_tx_coded[0]) begin
+        if(i_tx_scrambled[0]) begin
             next_data_count = data_count + 'd1;
             next_ctrl_count = ctrl_count;
         end

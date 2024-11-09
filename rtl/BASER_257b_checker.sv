@@ -17,12 +17,13 @@ module BASER_257b_checker
     parameter       CTRL_CHAR_PATTERN   = 8'h55
 )
 (
-    input  logic                    clk             ,   //! Clock input
-    input  logic                    i_rst           ,   //! Asynchronous reset
-    input  logic    [TC_WIDTH-1:0]  i_tx_coded      ,   //! Received data
-    output logic    [31:0]          o_block_count   ,   //! Total number of 257b blocks received
-    output logic    [31:0]          o_data_count    ,   //! Total number of 257b blocks with all 64b data block received
-    output logic    [31:0]          o_ctrl_count    ,   //! Total number of 257b blocks with at least one 64b control block received
+    input  logic                    clk                 ,   //! Clock input
+    input  logic                    i_rst               ,   //! Asynchronous reset
+    input  logic    [TC_WIDTH-1:0]  i_tx_coded          ,   //! Received data
+    output logic    [31:0]          o_block_count       ,   //! Total number of 257b blocks received
+    output logic    [31:0]          o_data_count        ,   //! Total number of 257b blocks with all 64b data block received
+    output logic    [31:0]          o_ctrl_count        ,   //! Total number of 257b blocks with at least one 64b control block received
+    output logic    [31:0]          o_inv_block_count       //! Total number of invalid blocks
 );
 
     // Total blocks counter
@@ -34,6 +35,9 @@ module BASER_257b_checker
     // Ctrl blocks counter
     logic [31:0] ctrl_count;
     logic [31:0] next_ctrl_count;
+    // Invalid blocks counter
+    logic [31:0] inv_block_count;
+    logic [31:0] next_inv_block_count;
 
     always_comb begin
         // All data blocks
