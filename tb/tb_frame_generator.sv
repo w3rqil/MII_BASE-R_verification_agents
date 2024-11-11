@@ -15,7 +15,7 @@ module frame_generator_tb;
     logic [CTRL_WIDTH-1:0] o_tx_ctrl;
 
     // Instantiate the EthernetFrameGenerator module
-    frame_genetator #(
+    frame_generator #(
         .DATA_WIDTH(DATA_WIDTH),
         .CTRL_WIDTH(CTRL_WIDTH)
     ) dut (

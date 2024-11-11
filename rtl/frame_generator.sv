@@ -5,7 +5,7 @@ module frame_generator
     /*
     *---------WIDTH---------
     */
-    parameter int DATA_WIDTH = 64,
+    parameter int DATA_WIDTH = 64            ,
     parameter int CTRL_WIDTH = DATA_WIDTH / 8,
     /*
     *---------CYCLES---------
@@ -109,14 +109,7 @@ module frame_generator
                 next_state = DST_ADDR;
                 next_counter = 0;
             end
-            /*
-            PREAMBLE: begin
-                next_tx_data_block = {{6{PREAMBLE_CODE}}, SFD_CODE, IDLE_CODE};
-                next_tx_ctrl_block = 8'b00000000; // All bytes are data bytes (PREAMBLE)
-                next_state = DST_ADDR;
-                next_counter = 0;
-            end
-            */
+            
             DST_ADDR: begin
                 
                 next_tx_data_block = {SRC_ADDR_CODE[15:0], DST_ADDR_CODE};

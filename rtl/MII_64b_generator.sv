@@ -11,7 +11,7 @@ module frame_generator
     *---------LENGTH---------
     */
     parameter int IDLE_LENGTH = 12          ,   //! Idle length
-    parameter int DATA_LENGTH = 46          ,   //! Data length
+    parameter int DATA_LENGTH = 56          ,   //! Data length
     /*
     *---------CODES---------
     */
@@ -94,13 +94,13 @@ module frame_generator
             end
 
             DATA: begin
+                int remaining_data_blocks = DATA_LENGTH / 8 - 7;
 
-                case ((DATA_LENGTH-7) % 9)
-                    : 
-                    default: 
-                endcase
-                if(DATA_LENGTH < 7) begin
-                    for (int i = 0; i < DATA_WIDTH/8; i++) begin
+                if(remaining_data_blocks >= 8) begin
+                        next_tx_data = {8{DATA_CODE}};
+                        next_tx_ctrl = 8'h00;
+                        next_counter = counter + 'd1;
+
                         if(i < DATA_LENGTH - 7) begin
                             next_tx_data[i*8 +: 8] = DATA_CODE;
                         end else begin
@@ -129,6 +129,8 @@ module frame_generator
             end
 
             EOF: begin
+                int aux = (DATA_LENGTH / 8 - 7) % 8;
+
                 next_tx_data = {{7{IDLE_CODE}}, TERMINATE_CODE};
                 next_tx_ctrl = 8'b00000001; // Only the first byte is data (TERMINATE)
                 next_state = IDLE;

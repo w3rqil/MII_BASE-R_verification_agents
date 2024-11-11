@@ -100,7 +100,6 @@ module MII_generator
                     next_tx_data = 8'h00                                        ;    
                 end else begin
                     next_tx_data = DATA_CHAR_PATTERN                            ;
-                    //next_tx_data = $urandom_range(0,255)                        ;
                 end
 
                 if(counter < (DATA_CYCLES-1)) begin
