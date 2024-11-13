@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-module frame_generator 
+module mac_generator 
 #(
     /*
     *---------WIDTH---------
