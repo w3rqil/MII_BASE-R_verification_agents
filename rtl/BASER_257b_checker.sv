@@ -13,7 +13,7 @@ module BASER_257b_checker
     *------BLOCK TYPE-------
     */
     parameter       DATA_CHAR_PATTERN   = 8'hAA                     ,   //! Data character
-    // For control characters, the standard specifies:
+    // For Control characters, the standard specifies:
     // Idle:    0x00
     // Error:   0x1E
     parameter       CTRL_CHAR_PATTERN   = 7'h1E                     ,   //! 7 BITS Control character
@@ -50,10 +50,14 @@ module BASER_257b_checker
 
     // Flag of first 64b ctrl block received in the 257b block
     logic        first_ctrl_block_flag;
+    // Flag of invalid 64b block detected
+    logic        inv_block_flag;
 
     always @(*) begin
         // Increase total block counter every clock positive edge
         next_block_count = block_count + 'd1;
+        first_ctrl_block_flag = 1'b0;
+        inv_block_flag = 1'b0;
 
         // Detected all data blocks
         if(i_rx_coded[0]) begin
@@ -61,8 +65,10 @@ module BASER_257b_checker
             next_data_count = data_count + 'd1;
             next_ctrl_count = ctrl_count;
 
-            // Valid block verification logic (INCOMPLETE)
-            next_inv_block_count = inv_block_count;
+            // Valid block verification logic
+            if(i_rx_coded[1 +: TC_DATA_WIDTH] != {32{DATA_CHAR_PATTERN}}) begin
+                inv_block_flag = 1'b1;
+            end
         end
 
         // Detected at least one ctrl block
@@ -70,7 +76,6 @@ module BASER_257b_checker
             // Increase control block counter
             next_data_count = data_count;
             next_ctrl_count = ctrl_count + 'd1;
-            first_ctrl_block_flag = 1'b0;
             
             // Analize the four 64b frames
             for(int i = 0; i < 4; i++) begin
@@ -82,11 +87,8 @@ module BASER_257b_checker
                     if(first_ctrl_block_flag == 1'b0) begin
 
                         // The frame has to be all Data characters
-                        if(i_rx_coded[5 + DATA_WIDTH * i +: DATA_WIDTH] == {8{DATA_CHAR_PATTERN}}) begin
-                            next_inv_block_count = inv_block_count;
-                        end
-                        else begin
-                            next_inv_block_count = inv_block_count + 'd1;
+                        if(i_rx_coded[5 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
+                            inv_block_flag = 1'b1;
                         end
                     end
 
@@ -94,11 +96,8 @@ module BASER_257b_checker
                     else begin
 
                         // The frame has to be all Data characters
-                        if(i_rx_coded[1 + DATA_WIDTH * i +: DATA_WIDTH] == {8{DATA_CHAR_PATTERN}}) begin
-                            next_inv_block_count = inv_block_count;
-                        end
-                        else begin
-                            next_inv_block_count = inv_block_count + 'd1;
+                        if(i_rx_coded[1 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
+                            inv_block_flag = 1'b1;
                         end
                     end
                 end
@@ -115,132 +114,99 @@ module BASER_257b_checker
 
                             // C7 C6 C5 C4 C3 C2 C1 C0
                             4'h1: begin
-                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] == {8{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // D7 D6 D5 D4 D3 D2 D1 S0
                             4'h7: begin
-                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] == {7{DATA_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // Z7 Z6 Z5 Z4 D3 D2 D1 O0
                             4'h4: begin
-                                if(i_rx_coded[9  + DATA_WIDTH * i +: 24] == {3{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[33 + DATA_WIDTH * i +:  4] == OSET_CHAR_PATTERN
-                                && i_rx_coded[37 + DATA_WIDTH * i +: 28] == '0                      ) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[9  + DATA_WIDTH * i +: 24] != {3{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[33 + DATA_WIDTH * i +:  4] != OSET_CHAR_PATTERN
+                                || i_rx_coded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 C5 C4 C3 C2 C1 T0
                             4'h8: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  7] == '0
-                                && i_rx_coded[16 + DATA_WIDTH * i  +: 49] == {7{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  7] != '0
+                                || i_rx_coded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 C5 C4 C3 C2 T1 D0
                             4'h9: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  8] == DATA_CHAR_PATTERN
-                                && i_rx_coded[17 + DATA_WIDTH * i  +:  6] == '0
-                                && i_rx_coded[23 + DATA_WIDTH * i  +: 42] == {6{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  8] != DATA_CHAR_PATTERN
+                                || i_rx_coded[17 + DATA_WIDTH * i  +:  6] != '0
+                                || i_rx_coded[23 + DATA_WIDTH * i  +: 42] != {6{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 C5 C4 C3 T2 D1 D0
                             4'hA: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 16] == {2{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[25 + DATA_WIDTH * i  +:  5] == '0
-                                && i_rx_coded[30 + DATA_WIDTH * i  +: 35] == {5{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 16] != {2{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[25 + DATA_WIDTH * i  +:  5] != '0
+                                || i_rx_coded[30 + DATA_WIDTH * i  +: 35] != {5{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 C5 C4 T3 D2 D1 D0
                             4'hB: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 24] == {3{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[33 + DATA_WIDTH * i  +:  4] == '0
-                                && i_rx_coded[37 + DATA_WIDTH * i  +: 28] == {4{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 24] != {3{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[33 + DATA_WIDTH * i  +:  4] != '0
+                                || i_rx_coded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 C5 T4 D3 D2 D1 D0
                             4'hC: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 32] == {4{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[41 + DATA_WIDTH * i  +:  3] == '0
-                                && i_rx_coded[46 + DATA_WIDTH * i  +: 21] == {3{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 32] != {4{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[41 + DATA_WIDTH * i  +:  3] != '0
+                                || i_rx_coded[46 + DATA_WIDTH * i  +: 21] != {3{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 C6 T5 D4 D3 D2 D1 D0
                             4'hD: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 40] == {5{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[49 + DATA_WIDTH * i  +:  2] == '0
-                                && i_rx_coded[51 + DATA_WIDTH * i  +: 14] == {2{CTRL_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 40] != {5{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[49 + DATA_WIDTH * i  +:  2] != '0
+                                || i_rx_coded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // C7 T6 D5 D4 D3 D2 D1 D0
                             4'hE: begin
-                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 48] == {6{DATA_CHAR_PATTERN}}
-                                && i_rx_coded[57 + DATA_WIDTH * i  +:  1] == '0
-                                && i_rx_coded[58 + DATA_WIDTH * i  +:  7] == CTRL_CHAR_PATTERN      ) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 48] != {6{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[57 + DATA_WIDTH * i  +:  1] != '0
+                                || i_rx_coded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end
 
                             // T7 D6 D5 D4 D3 D2 D1 D0
                             4'hF: begin
-                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] == {7{DATA_CHAR_PATTERN}}) begin
-                                    next_inv_block_count = inv_block_count;
-                                end
-                                else begin
-                                    next_inv_block_count = inv_block_count + 'd1;
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
                                 end
                             end 
 
                             // Invalid format
                             default: begin
-                                next_inv_block_count = inv_block_count + 'd1;
+                                inv_block_flag = 1'b1;
                             end
                         endcase
                     end
@@ -249,11 +215,8 @@ module BASER_257b_checker
                     else begin
                         
                         // The frame has to be all Ctrl characters
-                        if(i_rx_coded[1 + DATA_WIDTH * i +: DATA_WIDTH] == {8{CTRL_CHAR_PATTERN}}) begin
-                            next_inv_block_count = inv_block_count;
-                        end
-                        else begin
-                            next_inv_block_count = inv_block_count + 'd1;
+                        if(i_rx_coded[1 + DATA_WIDTH * i +: DATA_WIDTH] != {8{CTRL_CHAR_PATTERN}}) begin
+                            inv_block_flag = 1'b1;
                         end
                     end
                 end
@@ -272,7 +235,7 @@ module BASER_257b_checker
             block_count <= next_block_count;
             data_count <= next_data_count;
             ctrl_count <= next_ctrl_count;
-            inv_block_count <= next_inv_block_count;
+            inv_block_count <= inv_block_count + inv_block_flag;
         end
     end
 
