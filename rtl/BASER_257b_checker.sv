@@ -87,7 +87,7 @@ module BASER_257b_checker
                     if(first_ctrl_block_flag == 1'b0) begin
 
                         // The frame has to be all Data characters
-                        if(i_rx_coded[5 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
+                        if(i_rx_coded[5 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}} || i == 3) begin
                             inv_block_flag = 1'b1;
                         end
                     end
@@ -110,7 +110,7 @@ module BASER_257b_checker
                         first_ctrl_block_flag = 1'b1;
 
                         // Ctrl frame formats
-                        case (i_rx_coded[5 + DATA_WIDTH * i])
+                        case (i_rx_coded[5 + DATA_WIDTH * i +: 4])
 
                             // C7 C6 C5 C4 C3 C2 C1 C0
                             4'h1: begin
@@ -214,10 +214,106 @@ module BASER_257b_checker
                     // It is not the first ctrl frame found
                     else begin
                         
-                        // The frame has to be all Ctrl characters
-                        if(i_rx_coded[1 + DATA_WIDTH * i +: DATA_WIDTH] != {8{CTRL_CHAR_PATTERN}}) begin
-                            inv_block_flag = 1'b1;
-                        end
+                        // Ctrl frame formats
+                        case (i_rx_coded[1 + DATA_WIDTH * i +: 8])
+
+                            // C7 C6 C5 C4 C3 C2 C1 C0
+                            8'h1E: begin
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // D7 D6 D5 D4 D3 D2 D1 S0
+                            8'h78: begin
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // Z7 Z6 Z5 Z4 D3 D2 D1 O0
+                            8'h4B: begin
+                                if(i_rx_coded[9  + DATA_WIDTH * i +: 24] != {3{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[33 + DATA_WIDTH * i +:  4] != OSET_CHAR_PATTERN
+                                || i_rx_coded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 C5 C4 C3 C2 C1 T0
+                            8'h87: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  7] != '0
+                                || i_rx_coded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 C5 C4 C3 C2 T1 D0
+                            8'h99: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +:  8] != DATA_CHAR_PATTERN
+                                || i_rx_coded[17 + DATA_WIDTH * i  +:  6] != '0
+                                || i_rx_coded[23 + DATA_WIDTH * i  +: 42] != {6{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 C5 C4 C3 T2 D1 D0
+                            8'hAA: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 16] != {2{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[25 + DATA_WIDTH * i  +:  5] != '0
+                                || i_rx_coded[30 + DATA_WIDTH * i  +: 35] != {5{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 C5 C4 T3 D2 D1 D0
+                            8'hB4: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 24] != {3{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[33 + DATA_WIDTH * i  +:  4] != '0
+                                || i_rx_coded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 C5 T4 D3 D2 D1 D0
+                            8'hCC: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 32] != {4{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[41 + DATA_WIDTH * i  +:  3] != '0
+                                || i_rx_coded[46 + DATA_WIDTH * i  +: 21] != {3{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 C6 T5 D4 D3 D2 D1 D0
+                            8'hD2: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 40] != {5{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[49 + DATA_WIDTH * i  +:  2] != '0
+                                || i_rx_coded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // C7 T6 D5 D4 D3 D2 D1 D0
+                            8'hE1: begin
+                                if(i_rx_coded[ 9 + DATA_WIDTH * i  +: 48] != {6{DATA_CHAR_PATTERN}}
+                                || i_rx_coded[57 + DATA_WIDTH * i  +:  1] != '0
+                                || i_rx_coded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end
+
+                            // T7 D6 D5 D4 D3 D2 D1 D0
+                            8'hFF: begin
+                                if(i_rx_coded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
+                                    inv_block_flag = 1'b1;
+                                end
+                            end 
+
+                            // Invalid format
+                            default: begin
+                                inv_block_flag = 1'b1;
+                            end
+                        endcase
                     end
                 end
             end

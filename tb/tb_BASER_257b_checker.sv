@@ -11,8 +11,9 @@ module tb_BASER_257b_checker;
     /*
     *------BLOCK TYPE-------
     */
-    parameter       DATA_CHAR_PATTERN   = 8'h00                     ;
-    parameter       CTRL_CHAR_PATTERN   = 8'hFF                     ;
+    parameter       DATA_CHAR_PATTERN   = 8'hAA                     ;
+    parameter       CTRL_CHAR_PATTERN   = 7'h1E                     ;
+    parameter       OSET_CHAR_PATTERN   = 4'hF                      ;
 
     /*
     *---------INPUTS----------
@@ -51,24 +52,35 @@ module tb_BASER_257b_checker;
         #200;
         @(posedge clk);
         // Bloque valido: D3 D2 D1 C0
-        i_rx_coded[0]                  = 1'b0;
+        i_rx_coded[0]          = 1'b0;
+
         i_rx_coded[ 4  :    1] = 4'b1110;
-        i_rx_coded[ 5 +:   60] = {  8{CTRL_CHAR_PATTERN}};
+
+        i_rx_coded[ 5 +:    4] = 4'h7;                      // Start block type (0x78)
+        i_rx_coded[ 9 +:  7*8] = {  7{DATA_CHAR_PATTERN}};
+
         i_rx_coded[65 +: 3*64] = {3*8{DATA_CHAR_PATTERN}};
 
         #200;
         @(posedge clk);
         // Bloque valido: C3 D2 C1 D0
-        i_rx_coded[  4  :  1] = 4'b0101;
-        i_rx_coded[  5 +: 64] = {8{DATA_CHAR_PATTERN}};
-        i_rx_coded[ 69 +: 60] = {8{CTRL_CHAR_PATTERN}};
-        i_rx_coded[129 +: 64] = {8{DATA_CHAR_PATTERN}};
-        i_rx_coded[193 +: 64] = {8{CTRL_CHAR_PATTERN}};
+        i_rx_coded[  4  :   1] = 4'b0101;
+
+        i_rx_coded[  5 +: 8*8] = {8{DATA_CHAR_PATTERN}};
+
+        i_rx_coded[ 69 +:   4] = 4'hF;                      // "D0 D1 D2 D3 D4 D5 D6 T7" block type (0xFF)
+        i_rx_coded[ 73 +: 7*8] = {7{DATA_CHAR_PATTERN}};
+
+        i_rx_coded[129 +: 8*8] = {8{DATA_CHAR_PATTERN}};
+        
+        i_rx_coded[193 +:   8] = 8'h87;                     // "T0 C1 C2 C3 C4 C5 C6 C7" block type (0x87)
+        i_rx_coded[201 +:   7] = 7'h0;
+        i_rx_coded[208 +: 7*7] = {7{CTRL_CHAR_PATTERN}};
         
         #200;
         @(posedge clk);
         // Bloque invalido: D3 D2 D1 D0 pero con el header en 0 y los sig 4 bits en 1111
-        i_rx_coded[4 : 1] = 4'b1111;
+        i_rx_coded[  4  :    1] = 4'b1111;
         i_rx_coded[  5 +: 3*64] = {3*8{DATA_CHAR_PATTERN}};
         i_rx_coded[197 +:   60] = {  8{DATA_CHAR_PATTERN}};
 
@@ -76,10 +88,30 @@ module tb_BASER_257b_checker;
         @(posedge clk);
         // Bloque invalido: D3 D2 C1 D0 pero el C1 tiene 64 bits
         i_rx_coded[4 : 1] = 4'b1101;
-        i_rx_coded[  5 +: 64] = {8{DATA_CHAR_PATTERN}};
-        i_rx_coded[ 69 +: 64] = {8{CTRL_CHAR_PATTERN}};
-        i_rx_coded[133 +: 64] = {8{DATA_CHAR_PATTERN}};
-        i_rx_coded[197 +: 60] = {8{DATA_CHAR_PATTERN}};
+
+        i_rx_coded[  5 +: 8*8] = {8{DATA_CHAR_PATTERN}};
+
+        i_rx_coded[69  +:   8] = 8'h4B;                        // Ordered Set block type (0x4B)
+        i_rx_coded[77  +: 3*8] = {3{DATA_CHAR_PATTERN}};
+        i_rx_coded[101 +:   4] = OSET_CHAR_PATTERN;
+        i_rx_coded[105 +:  28] = '0;
+
+        i_rx_coded[133 +: 124] = {2*8{DATA_CHAR_PATTERN}};
+        
+        #200;
+        @(posedge clk);
+
+        // Bloque valido: El mismo bloque anterior corregido
+        i_rx_coded[4 : 1] = 4'b1101;
+
+        i_rx_coded[  5 +: 8*8] = {8{DATA_CHAR_PATTERN}};
+
+        i_rx_coded[69  +:    4] = 4'h4;                         // Ordered Set block type (0x4B)
+        i_rx_coded[73  +:  3*8] = {3{DATA_CHAR_PATTERN}};
+        i_rx_coded[97  +:    4] = OSET_CHAR_PATTERN;
+        i_rx_coded[101 +:   28] = '0;
+
+        i_rx_coded[129 +: 2*64] = {2*8{DATA_CHAR_PATTERN}};
         
         #200;
         @(posedge clk);
@@ -102,7 +134,8 @@ module tb_BASER_257b_checker;
         .SH_WIDTH           (SH_WIDTH)          ,
         .TC_WIDTH           (TC_WIDTH)          ,
         .DATA_CHAR_PATTERN  (DATA_CHAR_PATTERN) ,
-        .CTRL_CHAR_PATTERN  (CTRL_CHAR_PATTERN)
+        .CTRL_CHAR_PATTERN  (CTRL_CHAR_PATTERN) ,
+        .OSET_CHAR_PATTERN  (OSET_CHAR_PATTERN)
     ) dut (
         .clk                (clk)               ,
         .i_rst              (i_rst)             ,
