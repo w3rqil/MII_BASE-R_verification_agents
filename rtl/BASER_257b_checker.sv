@@ -50,20 +50,14 @@ module BASER_257b_checker
 
     // Flag of first 64b ctrl block received in the 257b block
     logic        first_ctrl_block_flag;
-
     // Flag of invalid 64b block detected
     logic        inv_block_flag;
-    
-    /* If the module detects a first 64b ctrl block, offset_first_ctrl_frame = 0
-       If not, offset_first_ctrl_frame = 4 */
-    int          offset_first_ctrl_frame;
 
     always @(*) begin
         // Increase total block counter every clock positive edge
         next_block_count = block_count + 'd1;
         first_ctrl_block_flag = 1'b0;
         inv_block_flag = 1'b0;
-        offset_first_ctrl_frame = 4;
 
         // Detected all data blocks
         if(i_rx_coded[0]) begin
@@ -71,8 +65,8 @@ module BASER_257b_checker
             next_data_count = data_count + 'd1;
             next_ctrl_count = ctrl_count;
 
-            // The block has to be all Data characters
-            if(i_rx_coded[(offset_first_ctrl_frame + 1) +: TC_DATA_WIDTH] != {32{DATA_CHAR_PATTERN}}) begin
+            // Valid block verification logic
+            if(i_rx_coded[1 +: TC_DATA_WIDTH] != {32{DATA_CHAR_PATTERN}}) begin
                 inv_block_flag = 1'b1;
             end
         end
@@ -88,12 +82,7 @@ module BASER_257b_checker
 
                 // Data frame
                 if(i_rx_coded[i+1]) begin
-                    
-                        // The frame has to be all Data characters
-                    if(i_rx_coded[(offset_first_ctrl_frame + 1) + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
-                        inv_block_flag = 1'b1;
-                    end
-                    /*
+
                     // There is no ctrl frame found yet
                     if(first_ctrl_block_flag == 1'b0) begin
 
@@ -111,25 +100,15 @@ module BASER_257b_checker
                             inv_block_flag = 1'b1;
                         end
                     end
-                    */
                 end
 
                 // Ctrl frame
                 else begin
 
-                    // The frame has to be all Ctrl characters
-                    if(i_rx_coded[(offset_first_ctrl_frame + 1) + DATA_WIDTH * i +: DATA_WIDTH] != {8{CTRL_CHAR_PATTERN}}) begin
-                        inv_block_flag = 1'b1;
-                    end
-
-                    // There is a ctrl frame found
-                    offset_first_ctrl_frame = 0;
-
                     // It is the first ctrl frame found
-                    if(offset_first_ctrl_frame == 4) begin
-                        offset_first_ctrl_frame = 0;
+                    if(first_ctrl_block_flag == 1'b0) begin
+                        first_ctrl_block_flag = 1'b1;
 
-                        /*
                         // Ctrl frame formats
                         case (i_rx_coded[5 + DATA_WIDTH * i])
 
@@ -230,10 +209,8 @@ module BASER_257b_checker
                                 inv_block_flag = 1'b1;
                             end
                         endcase
-                        */
                     end
 
-                    /*
                     // It is not the first ctrl frame found
                     else begin
                         
@@ -242,7 +219,6 @@ module BASER_257b_checker
                             inv_block_flag = 1'b1;
                         end
                     end
-                    */
                 end
             end
         end
