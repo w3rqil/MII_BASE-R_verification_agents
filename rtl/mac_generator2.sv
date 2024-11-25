@@ -1,44 +1,55 @@
 module mac_frame_generator #(
-    parameter PAYLOAD_MAX_SIZE = 1500 // Maximum payload size in bytes
+    parameter PAYLOAD_MAX_SIZE = 1500                                                               , // Maximum payload size in bytes
+    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                    ,
+    parameter PAYLOAD_LENGTH = 6
 )(
-    input               logic   clk                 ,   // Clock signal
-    input               logic   i_rst_n             ,   // Active-low reset
-    input               logic   i_start             ,   // Start signal to begin frame generation
-    input       [47:0]          i_dest_address      ,   // Destination MAC address
-    input       [47:0]          i_src_address       ,   // Source MAC address
-    input       [15:0]          i_eth_type          ,   // EtherType or Length field
-    input       [7:0]           i_payload_data      ,   // Input payload byte (provided externally)
-    input                       i_payload_valid     ,   // Valid signal for payload data
-    output      logic           o_valid             ,   // Output o_valid signal
-    output      logic [63:0]    o_frame_out         ,   // 64-bit output data
-    output      logic           o_done                  // Indicates frame generation is complete
+    input               logic   clk                                                                 , // Clock signal
+    input               logic   i_rst_n                                                             , // Active-low reset
+    input               logic   i_start                                                             , // Start signal to begin frame generation
+    input       [47:0]          i_dest_address                                                      , // Destination MAC address
+    input       [47:0]          i_src_address                                                       , // Source MAC address
+    input       [15:0]          i_eth_type                                                          , // EtherType or Length field
+    input       [15:0]          i_payload_length                                                    , // Payload length in bytes
+    input       [7:0]           i_payload[PAYLOAD_LENGTH-1:0]                                     , // Payload data (preloaded)
+    input       [7:0]           i_interrupt                                                         ,
+    output      logic           o_valid                                                             , // Output valid signal
+    output      logic [63:0]    o_frame_out                                                         , // 64-bit output data
+    output      logic           o_done                                                                // Indicates frame generation is complete
 );
-    integer PAYLOAD_SIZE = (PAYLOAD_MAX_SIZE < 1512) ? 1512 : PAYLOAD_MAX_SIZE;
+
+    localparam [7:0]
+                    FIXED_PAYLOAD = 8'd1;
+
+
     // State machine states
     localparam [2:0]
-        IDLE            = 3'd0,
-        SEND_PREAMBLE   = 3'd1,
-        SEND_HEADER     = 3'd2,
-        SEND_PAYLOAD    = 3'd3,
-        DONE            = 3'd4;
+        IDLE            = 3'd0                                                                      ,
+        SEND_PREAMBLE   = 3'd1                                                                      ,
+        SEND_HEADER     = 3'd2                                                                      ,
+        SEND_PAYLOAD    = 3'd3                                                                      ,
+        SEND_PADDING    = 3'd4                                                                      ,
+        DONE            = 3'd5                                                                      ;
 
-    reg [2:0] state, next_state;
+    reg [2:0] state, next_state                                                                     ;
 
     // Internal registers
-    logic [15:0] byte_counter                           ;   // Tracks bytes sent
-    logic [PAYLOAD_MAX_SIZE + 46 :0] header_shift_reg   ;   // Shift register for sending preamble + header
-    logic [63:0]  payload_shift_reg                     ;   // Shift register for 64-bit payload output
-    logic [15:0]  payload_size                          ;   // Number of payload bytes to send
-
-    // Preamble and SFD
-    localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5; // Preamble (7 bytes) + SFD (1 byte)
+    logic [15:0] byte_counter                                                                       ;   // Tracks bytes sent
+    logic [111:0] header_shift_reg                                                                  ;   // Shift register for sending preamble + header (192 bits)
+    logic [63:0] payload_shift_reg                                                                  ;   // Shift register for 64-bit payload output
+    logic [15:0] payload_index                                                                      ;   // Index for reading payload bytes
+    logic [15:0] padding_counter                                                                    ;   // Counter for adding padding if payload < 46 bytes
+    logic [(PAYLOAD_LENGTH-1)*8 + 112:0] gen_shift_reg;
+    // Constants for Ethernet frame                                     
+    localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                           ; // Preamble (7 bytes) + SFD (1 byte)
+    localparam MIN_PAYLOAD_SIZE = 46                                                                ; // Minimum Ethernet payload size
+    localparam FRAME_SIZE = 64                                                                      ; // Minimum Ethernet frame size (in bytes)
 
     // Sequential logic: State transitions
     always_ff @(posedge clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            state <= IDLE                               ;
+            state <= IDLE                                                                           ;
         end else begin
-            state <= next_state                         ;
+            state <= next_state                                                                     ;
         end
     end
 
@@ -47,83 +58,116 @@ module mac_frame_generator #(
         case (state)
             IDLE: begin
                 if (i_start) begin
-                    next_state = SEND_PREAMBLE          ;
-                end else begin
-                    next_state = IDLE                   ;
+                    next_state = SEND_PREAMBLE                                                      ;
+                end else begin                                                  
+                    next_state = IDLE                                                               ;
                 end
             end
             SEND_PREAMBLE: begin
-                next_state = SEND_HEADER                ;
+                next_state = SEND_HEADER                                                            ;
             end
             SEND_HEADER: begin
-                if (byte_counter >= 14) begin // 14 bytes for header
-                    next_state = SEND_PAYLOAD           ;
-                end else begin
-                    next_state = SEND_HEADER            ;
+                if (byte_counter >= 14) begin
+                    next_state = SEND_PAYLOAD                                                       ;
+                end else begin                                                  
+                    next_state = SEND_HEADER                                                        ;
                 end
             end
             SEND_PAYLOAD: begin
-                if (byte_counter >= (14 + payload_size)) begin
-                    next_state = DONE                   ;
-                end else begin
-                    next_state = SEND_PAYLOAD           ;
+                if (payload_index >= i_payload_length) begin
+                    if (payload_index < MIN_PAYLOAD_SIZE) begin
+                        next_state = SEND_PADDING; // Add padding if payload is too short
+                    end else begin
+                        next_state = DONE                                                           ;
+                    end                                                 
+                end else begin                                                  
+                    next_state = SEND_PAYLOAD                                                       ;
                 end
             end
-            DONE: begin
-                if (!i_start) begin
-                    next_state = IDLE                   ;
-                end else begin
-                    next_state = DONE                   ;
-                end
-            end
-            default: next_state = IDLE                  ;
+            SEND_PADDING: begin
+                if (padding_counter >= (MIN_PAYLOAD_SIZE - i_payload_length)) begin
+                    next_state = DONE                                                               ;
+                end else begin                                                  
+                    next_state = SEND_PADDING                                                       ;
+                end                                                 
+            end                                                 
+            DONE: begin                                                 
+                next_state = IDLE                                                                   ;
+            end                                                 
+            default: next_state = IDLE                                                              ;
         endcase
     end
-
+    integer i;
+    reg [(PAYLOAD_LENGTH-1)*8:0] payload_reg;
     // Sequential logic: Frame generation
     always_ff @(posedge clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            o_valid <= 1'b0                             ;
-            o_frame_out <= 64'b0                        ;
-            o_done <= 1'b0                              ;
-            byte_counter <= 16'd0                       ;
-            payload_size <= 16'd0                       ;
-            header_shift_reg <= 512'b0                  ;
-            payload_shift_reg <= 64'b0                  ;
-        end else begin
-            case (state)
-                IDLE: begin
-                    o_valid         <= 1'b0                 ;
-                    o_frame_out     <= 64'b0                ;
-                    o_done          <= 1'b0                 ;
-                    byte_counter    <= 16'd0                ;
+            o_valid <= 1'b0                                                                         ;
+            o_frame_out <= 64'b0                                                                    ;
+            o_done <= 1'b0                                                                          ;
+            byte_counter <= 16'd0                                                                   ;
+            payload_index <= 16'd0                                                                  ;
+            padding_counter <= 16'd0                                                                ;
+            header_shift_reg <= 112'b0                                                              ;
+            payload_shift_reg <= 64'b0                                                              ;
+        end else begin                                                  
+            case (state)                                                    
+                IDLE: begin                                                 
+                    o_valid <= 1'b0                                                                 ;
+                    o_frame_out <= 64'b0                                                            ;
+                    o_done <= 1'b0                                                                  ; 
+                    byte_counter <= 16'd0                                                           ;
+                    payload_index <= 16'd0                                                          ;
+                    padding_counter <= 16'd0                                                        ;
 
-                    // Prepare header (14 bytes = 112 bits): Destination + Source + EtherType
-                    header_shift_reg <= {PREAMBLE_SFD, i_dest_address, i_src_address, i_eth_type, 224'b0}; // Pad to 512 bits
+                    // Prepare header: Destination + Source + EtherType
+                    header_shift_reg <= {i_dest_address, i_src_address, i_eth_type}                 ;
+                    //genetal_shift_reg <= {header_shift_reg, }
+                    for(i=0; i<i_payload_length; i= i+1) begin
+                        payload_reg[(i*8) +:8]= i_payload[i];
+                    end
+                    gen_shift_reg <= {header_shift_reg, payload_reg};
                 end
                 SEND_PREAMBLE: begin
-                    o_valid <= 1'b1;
-                    o_frame_out <= header_shift_reg[511:448]            ; // Send the Preamble and SFD (64 bits)
-                    header_shift_reg <= {header_shift_reg[447:0], 64'b0}; // Shift left
+                    o_valid <= 1'b1                                                                 ;
+                    o_frame_out <= PREAMBLE_SFD                                                     ; // Send Preamble + SFD
                 end
                 SEND_HEADER: begin
-                    o_valid <= 1'b1                                     ;
-                    o_frame_out <= header_shift_reg[511:448]            ; // Send the next 64 bits of the header
-                    header_shift_reg <= {header_shift_reg[447:0], 64'b0}; // Shift left
-                    byte_counter <= byte_counter + 8                    ; // Increment byte counter by 8
+                    o_valid <= 1'b1                                                                 ;
+                    // if(byte_counter > 8 ) begin
+                    //     o_frame_out <= gen_shift_reg[(PAYLOAD_LENGTH-1)*8 + 48]                     ;
+                    //     byte_counter <= byte_counter + 8                                            ;
+                    // end
+
+                    //o_frame_out <= {header_shift_reg[111:48]}                                       ; // Send top 64 bits of the header
+                    //header_shift_reg <= {header_shift_reg[47:0], 64'b0}                             ; // Shift left
+                    o_frame_out <= gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 112: (PAYLOAD_LENGTH-1)*8 + 48];
+                    gen_shift_reg <= {gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 47:0], 64'b0}           ;
+                    byte_counter <= byte_counter + 8                                                ;
+                    
                 end
                 SEND_PAYLOAD: begin
-                    if (i_payload_valid) begin
-                        o_valid <= 1'b1;
-                        o_frame_out <= {payload_shift_reg[55:0], i_payload_data}        ; // Shift in payload byte
-                        payload_shift_reg <= {payload_shift_reg[55:0], i_payload_data}  ;
-                        byte_counter <= byte_counter + 1                                ;
-                        payload_size <= payload_size + 1                                ;
-                    end
+                    o_valid <= 1'b1                                                                 ;
+                    //if(i_interrupt == FIXED_PAYLOAD) begin
+                    //    if(i_payload_length < 46)   o_frame_out
+                    //end
+
+                    //o_frame_out <= payload_shift_reg                                                ;      // Output 64 bits
+                    o_frame_out <= gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 112: (PAYLOAD_LENGTH-1)*8 + 48];
+                    gen_shift_reg <= {gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 47:0], 64'b0}           ;
+                    
+                    payload_shift_reg <= {payload_shift_reg[55:0], i_payload[payload_index]}        ;
+                    payload_index <= payload_index + 1                                              ;
+                    byte_counter <= byte_counter + 8                                                ;
+                end
+                SEND_PADDING: begin
+                    o_valid <= 1'b1                                                                 ;
+                    o_frame_out <= 64'b0                                                            ; // Send zero padding
+                    padding_counter <= padding_counter + 8                                          ;
                 end
                 DONE: begin
-                    o_valid <= 1'b0                                                     ;
-                    o_done <= 1'b1                                                      ;
+                    o_valid <= 1'b0                                                                 ;
+                    o_done <= 1'b1                                                                  ;
                 end
             endcase
         end
