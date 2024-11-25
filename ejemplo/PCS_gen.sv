@@ -139,16 +139,16 @@ task automatic generate_frame(
     automatic int                         insert_control   /* Flag to insert control byte */                                                                                                                                                                                                        ;             
 
     // Generate a random data block             
-    data_block = $urandom($time + i_number) % 64'hFFFFFFFFFFFFFFFF                                                                                                                                                                                                                                  ;                                            
+    data_block = $urandom(i_number) % 64'hFFFFFFFFFFFFFFFF                                                                                                                                                                                                                                  ;                                            
 
     // Decide wheter insert control byte or not             
-    insert_control = $urandom($time + i_number) % 100                                                                                                                                                                                                                                               ;
+    insert_control = $urandom(i_number) % 100                                                                                                                                                                                                                                               ;
 
     // Create the frame             
     if (insert_control < PROB) begin                
         // Choose a random control byte between 0 to 2              
         // Choose a byte position to insert control byte                
-        case ($urandom($time + i_number) % 11)              
+        case ($urandom(i_number) % 11)              
             0: begin
                 // [ FF ] [ CTRL CTRL CTRL CTRL CTRL CTRL CTRL  CTRL ]                
                 txd =  {MII_IDLE[CONTROL_WIDTH - 2 : 0]                                                                                                                                                                                                                                             , 

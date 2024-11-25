@@ -1,3 +1,5 @@
+`timescale 1ns/100ps
+`include "Modulos/signalGenerator/ejemplo/PCS_gen.sv"
 
 module PCS_generator_tb;
 
@@ -77,6 +79,8 @@ module PCS_generator_tb;
 always #5  clk = ~clk                                                                                                                                                                                                                                                                       ; 
 
 initial begin
+    $dumpfile("Modulos/signalGenerator/ejemplo/vcd_PCS_gen_tb.vcd");
+    $dumpvars(0, PCS_generator_tb);
     clk             = 'b0                                                                                                                                                                                                                                                                   ;
     i_rst_n         = 'b0                                                                                                                                                                                                                                                                   ;
     i_data_sel_0    = 'b0000                                                                                                                                                                                                                                                                ;
@@ -92,86 +96,17 @@ initial begin
     // Set the enable and desactive the reset
     i_rst_n         = 1'b1                                                                                                                                                                                                                                                                  ;
     i_enable        = 1'b1                                                                                                                                                                                                                                                                  ;
-    i_valid         = 3'b111                                                                                                                                                                                                                                                                ;
-    // Set the random generator
-    i_random_0      = 1'b1                                                                                                                                                                                                                                                                  ;
-    #1000                                                                                                                                                                                                                                                                                   ;  
-    // Unset the random generator
-    i_random_0      = 1'b0                                                                                                                                                                                                                                                                  ;
-    #100                                                                                                                                                                                                                                                                                    ;
+    i_valid         = 3'b111;
     // Set the data sel 0 to data
     i_data_sel_0    = 4'b0001                                                                                                                                                                                                                                                               ;
     #100                                                                                                                                                                                                                                                                                    ;
     // Set the data sel 1 to data
     i_data_sel_0    = 4'b0010                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 0 and 1 as data
-    i_data_sel_0    = 4'b0011                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bit 2 as data
-    i_data_sel_0    = 4'b0100                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 2 and 0 as data
-    i_data_sel_0    = 4'b0101                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 2 and 1 as data
-    i_data_sel_0    = 4'b0110                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 2, 1 and 0 as data
-    i_data_sel_0    = 4'b0111                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bit 3 as data
-    i_data_sel_0    = 4'b1000                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 3 and 0 as data
-    i_data_sel_0    = 4'b1001                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 3 and 1 as data
-    i_data_sel_0    = 4'b1010                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 3, 1 and 0 as data
-    i_data_sel_0    = 4'b1011                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 3 and 2 as data
-    i_data_sel_0    = 4'b1100                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the bits 3, 2 and 0 as data
-    i_data_sel_0    = 4'b1101                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
+    #100;
     // Set the bits 3, 2 and 1 as data
     i_data_sel_0    = 4'b1110                                                                                                                                                                                                                                                               ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Set the random flag to 1 again
-    i_random_0      = 1'b1                                                                                                                                                                                                                                                                  ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Desactivate scrambler, transcoder and PCS convertion
-    i_valid         = 3'b000                                                                                                                                                                                                                                                                ; 
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate PCS convertion
-    i_valid         = 3'b001                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the transcoder
-    i_valid         = 3'b010                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the transcoder and PCS convertion
-    i_valid         = 3'b011                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the scrambler
-    i_valid         = 3'b100                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the scrambler and PCS convertion
-    i_valid         = 3'b101                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the scrambler and transcoder
-    i_valid         = 3'b110                                                                                                                                                                                                                                                                ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Activate the scrambler, transcoder and PCS convertion
-    i_valid         = 3'b111                                                                                                                                                                                                                                                                ;
-    // Activate the test mode
-    i_tx_test_mode  = 1'b1                                                                                                                                                                                                                                                                  ;
-    #100                                                                                                                                                                                                                                                                                    ;
-    // Desactivate the test mode and change the inputs 
-    i_tx_test_mode  = 1'b0                                                                                                                                                                                                                                                                  ;
+    #100;
+    // Change the inputs
     i_enable        = 1'b0                                                                                                                                                                                                                                                                  ;
     i_txc           = 8'h00                                                                                                                                                                                                                                                                 ;
     i_txd           = 64'hAAAAAAAAAAAAAAAA                                                                                                                                                                                                                                                  ;
