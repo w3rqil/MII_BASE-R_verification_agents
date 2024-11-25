@@ -10,8 +10,8 @@ module mac_frame_generator #(
     input       [47:0]          i_src_address                                                       , // Source MAC address
     input       [15:0]          i_eth_type                                                          , // EtherType or Length field
     input       [15:0]          i_payload_length                                                    , // Payload length in bytes
-    input       [7:0]           i_payload[PAYLOAD_LENGTH-1:0]                                     , // Payload data (preloaded)
-    input       [7:0]           i_interrupt                                                         ,
+    input       [7:0]           i_payload[PAYLOAD_LENGTH-1:0]                                       , // Payload data (preloaded)
+    input       [7:0]           i_interrupt                                                         , // Set of interruptions to acomplish different behavors
     output      logic           o_valid                                                             , // Output valid signal
     output      logic [63:0]    o_frame_out                                                         , // 64-bit output data
     output      logic           o_done                                                                // Indicates frame generation is complete
@@ -97,6 +97,9 @@ module mac_frame_generator #(
             default: next_state = IDLE                                                              ;
         endcase
     end
+
+
+
     integer i;
     reg [(PAYLOAD_LENGTH-1)*8:0] payload_reg;
     // Sequential logic: Frame generation
@@ -125,6 +128,9 @@ module mac_frame_generator #(
                     //genetal_shift_reg <= {header_shift_reg, }
                     for(i=0; i<i_payload_length; i= i+1) begin
                         payload_reg[(i*8) +:8]= i_payload[i];
+                        if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
+                            payload_reg[(i*8) +:8]= PAYLOAD_CHAR_PATTERN;
+                        end
                     end
                     gen_shift_reg <= {header_shift_reg, payload_reg};
                 end
