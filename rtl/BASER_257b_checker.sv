@@ -44,10 +44,27 @@ module BASER_257b_checker
     // Ctrl blocks counter
     logic [31:0] ctrl_count;
     logic [31:0] next_ctrl_count;
-    // Invalid blocks counter
+    // Total invalid blocks counter
     logic [31:0] inv_block_count;
     logic [31:0] next_inv_block_count;
 
+
+    /* More counters to use later */
+
+    // Invalid data blocks counter
+    logic [31:0] inv_data_block_count;
+    logic [31:0] next_inv_data_block_count;
+    // Invalid ctrl blocks counter
+    logic [31:0] inv_ctrl_block_count;
+    logic [31:0] next_inv_ctrl_block_count;
+    // Invalid sync header counter
+    logic [31:0] inv_sh_count;
+    logic [31:0] next_inv_sh_count;
+    // Invalid sequence counter
+    logic [31:0] inv_sequence_count;
+    logic [31:0] next_inv_sequence_count;
+
+    
     // Flag of first 64b ctrl block received in the 257b block
     logic        first_ctrl_block_flag;
     // Flag of invalid 64b block detected
