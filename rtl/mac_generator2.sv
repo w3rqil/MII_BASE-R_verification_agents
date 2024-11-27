@@ -1,7 +1,7 @@
 module mac_frame_generator #(
     parameter PAYLOAD_MAX_SIZE = 1500                                                                                   , // Maximum payload size in bytes
     parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                        ,
-    parameter PAYLOAD_LENGTH = 6                    
+    parameter PAYLOAD_LENGTH = 8                    
 )(                  
     input               logic   clk                                                                                     , // Clock signal
     input               logic   i_rst_n                                                                                 , // Active-low reset
@@ -31,14 +31,14 @@ module mac_frame_generator #(
         DONE            = 3'd5                                                                                          ;
 
     reg [2:0] state, next_state                                                                                         ;
-
+    reg [(PAYLOAD_LENGTH)*8 - 1:0] payload_reg;
     // Internal registers                   
     reg [15:0] byte_counter                                                                                             ;   // Tracks bytes sent
     logic [111:0] header_shift_reg                                                                                      ;   // Shift register for sending preamble + header (192 bits)
     logic [63:0] payload_shift_reg                                                                                      ;   // Shift register for 64-bit payload output
     reg [15:0] payload_index                                                                                            ;   // Index for reading payload bytes
     reg [15:0] padding_counter                                                                                          ;   // Counter for adding padding if payload < 46 bytes
-    logic [(PAYLOAD_LENGTH-1)*8 + 112:0] gen_shift_reg;                 
+    logic [(PAYLOAD_LENGTH)*8 + 112-1:0] gen_shift_reg;                 
     // Constants for Ethernet frame                                                         
     localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                               ; // Preamble (7 bytes) + SFD (1 byte)
     localparam MIN_PAYLOAD_SIZE = 46                                                                                    ; // Minimum Ethernet payload size
@@ -82,7 +82,7 @@ module mac_frame_generator #(
                     // Prepare header: Destination + Source + EtherType 
                     header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
                     //genetal_shift_reg <= {header_shift_reg, }
-                    for(i=0; i<i_payload_length; i= i+1) begin
+                    for(i=0; i<PAYLOAD_LENGTH; i= i+1) begin
                         payload_reg[(i*8) +:8]  = i_payload[i];
                         if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
                             payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN;
@@ -110,8 +110,8 @@ module mac_frame_generator #(
 
                     //next_frame_out <= {header_shift_reg[111:48]}                                       ; // Send top 64 bits of the header
                     //header_shift_reg <= {header_shift_reg[47:0], 64'b0}                             ; // Shift left
-                    next_frame_out     = gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 112: (PAYLOAD_LENGTH-1)*8 + 49]          ;
-                    gen_shift_reg   = {gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 47:0], 64'b0}                              ;
+                    next_frame_out     = gen_shift_reg [(PAYLOAD_LENGTH)*8 + 112 -1 : (PAYLOAD_LENGTH)*8 + 48]          ;
+                    gen_shift_reg   = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                              ;
                     next_byte_counter    = byte_counter + 8                                                             ;
 
                     if (byte_counter >= 14) begin   
@@ -128,10 +128,10 @@ module mac_frame_generator #(
                     //end
 
                     //next_frame_out <= payload_shift_reg                                                ;      // Output 64 bits
-                    next_frame_out         = gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 112: (PAYLOAD_LENGTH-1)*8 + 48]      ;
-                    gen_shift_reg       = {gen_shift_reg [(PAYLOAD_LENGTH-1)*8 + 47:0], 64'b0}                          ;
+                    next_frame_out         = gen_shift_reg [(PAYLOAD_LENGTH)*8 + 112 - 1 : (PAYLOAD_LENGTH)*8 + 48]      ;
+                    gen_shift_reg       = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                          ;
 
-                    payload_shift_reg   = {payload_shift_reg[55:0], i_payload[payload_index]}                           ;
+                    //payload_shift_reg   = {payload_shift_reg[55:0], i_payload[payload_index]}                           ;
                     next_payload_index       = payload_index + 1                                                        ;
                     next_byte_counter        = byte_counter + 8                                                         ;
 
@@ -175,7 +175,7 @@ module mac_frame_generator #(
     end
 
     integer i;
-    reg [(PAYLOAD_LENGTH-1)*8:0] payload_reg;
+    
     // Sequential logic: Frame generation
     always_ff @(posedge clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
