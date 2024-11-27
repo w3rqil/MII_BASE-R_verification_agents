@@ -5,6 +5,8 @@
 */
 
 `timescale 1ns/100ps
+`include "Modulos/signalGenerator/ejemplo/PCS_gen.sv"
+`include "Modulos/signalGenerator/rtl/BASER_257b_checker.sv"
 
 module BASER_gen_check;
 
@@ -63,12 +65,14 @@ module BASER_gen_check;
     // Pre-scrambler 257b block output from generator is the input of the checker.
     always @(*) begin
         i_rx_coded[0] = o_tx_coded_f0[256];
-        for (int i = 0; i < 31; i++) begin
+        for (int i = 0; i < 32; i++) begin
             i_rx_coded[(i * 8) + 1 +: 8] = o_tx_coded_f0[((32 - i) * 8) - 1 -: 8];
         end 
     end
 
     initial begin
+        $dumpfile("Modulos/signalGenerator/tb/tb_BASER_gen_check.vcd");
+        $dumpvars();
         clk             = 'b0       ;
         i_rst           = 'b1       ;
         i_data_sel_0    = 'b0000    ;
@@ -90,7 +94,8 @@ module BASER_gen_check;
         // Set the data sel 0 to data
         i_data_sel_0    = 4'b0001   ;
         #100                        ;
-
+        i_data_sel_0 = 4'b0010;
+        #100;
         // Set the data sel 0 to ctrl
         i_data_sel_0    = 4'b0000   ;
         #100                        ;
