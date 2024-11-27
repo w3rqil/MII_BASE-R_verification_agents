@@ -64,7 +64,7 @@ module BASER_gen_check;
     always @(*) begin
         i_rx_coded[0] = o_tx_coded_f0[256];
         for (int i = 0; i < 31; i++) begin
-            i_rx_coded[i * 8 +: 8] = o_tx_coded_f0[(32 - i) * 8 -: 8];
+            i_rx_coded[(i * 8) + 1 +: 8] = o_tx_coded_f0[((32 - i) * 8) - 1 -: 8];
         end 
     end
 
