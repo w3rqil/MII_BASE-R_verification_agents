@@ -60,8 +60,13 @@ module BASER_gen_check;
     // Clock generation
     always #5 clk = ~clk; // 100 MHz clock
 
-    // Pre-scrambler 257b block output from generator is the input of the checker
-    assign i_rx_coded = o_tx_coded_f0;
+    // Pre-scrambler 257b block output from generator is the input of the checker.
+    always @(*) begin
+        i_rx_coded[0] = o_tx_coded_f0[256];
+        for (int i = 0; i < 31; i++) begin
+            i_rx_coded[i * 8 +: 8] = o_tx_coded_f0[(32 - i) * 8 -: 8];
+        end 
+    end
 
     initial begin
         clk             = 'b0       ;
