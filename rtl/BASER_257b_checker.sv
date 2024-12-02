@@ -43,15 +43,22 @@ module BASER_257b_checker
     output logic    [31:0]              o_inv_block_count       // Total number of invalid blocks
 );
 
-    // 64b blocks
+    // 1st 64b block
     logic [FRAME_WIDTH-1:0] rx_coded_0      ;
-    logic [FRAME_WIDTH-1:0] rx_coded_1      ;
-    logic [FRAME_WIDTH-1:0] rx_coded_2      ;
-    logic [FRAME_WIDTH-1:0] rx_coded_3      ;
     logic [FRAME_WIDTH-1:0] next_rx_coded_0 ;
+    // 2nd 64b block
+    logic [FRAME_WIDTH-1:0] rx_coded_1      ;
     logic [FRAME_WIDTH-1:0] next_rx_coded_1 ;
+    // 3rd 64b block
+    logic [FRAME_WIDTH-1:0] rx_coded_2      ;
     logic [FRAME_WIDTH-1:0] next_rx_coded_2 ;
+    // 4th 64b block
+    logic [FRAME_WIDTH-1:0] rx_coded_3      ;
     logic [FRAME_WIDTH-1:0] next_rx_coded_3 ;
+
+    // Payload of the four 64b blocks
+    logic [TC_DATA_WIDTH-1:0] rx_payloads   ;
+    logic [TC_DATA_WIDTH-1:0] next_rx_payloads   ;
 
     // Total blocks counter
     logic [31:0] block_count            ;
@@ -100,15 +107,15 @@ module BASER_257b_checker
             next_data_count = data_count + 'd1;
             next_ctrl_count = ctrl_count;
 
-            next_rx_coded_0 = {i_rx_xcoded[    DATA_WIDTH :                  TC_HDR_WIDTH], 2'b10};
-            next_rx_coded_1 = {i_rx_xcoded[2 * DATA_WIDTH :     DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
-            next_rx_coded_2 = {i_rx_xcoded[3 * DATA_WIDTH : 2 * DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
-            next_rx_coded_3 = {i_rx_xcoded[4 * DATA_WIDTH : 3 * DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
-
             // Valid block verification logic
             if(i_rx_xcoded[1 +: TC_DATA_WIDTH] != {32{DATA_CHAR_PATTERN}}) begin
                 inv_block_flag = 1'b1;
             end
+
+            next_rx_coded_0 = {i_rx_xcoded[    DATA_WIDTH :                  TC_HDR_WIDTH], 2'b10};
+            next_rx_coded_1 = {i_rx_xcoded[2 * DATA_WIDTH :     DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
+            next_rx_coded_2 = {i_rx_xcoded[3 * DATA_WIDTH : 2 * DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
+            next_rx_coded_3 = {i_rx_xcoded[4 * DATA_WIDTH : 3 * DATA_WIDTH + TC_HDR_WIDTH], 2'b10};
         end
 
         // Detected at least one ctrl block
@@ -130,6 +137,8 @@ module BASER_257b_checker
                         if(i_rx_xcoded[5 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}} || i == 3) begin
                             inv_block_flag = 1'b1;
                         end
+
+                        next_rx_payloads[DATA_WIDTH * i +: DATA_WIDTH] = i_rx_xcoded[5 + DATA_WIDTH * i +: DATA_WIDTH];
                     end
 
                     // There is a ctrl frame found before
@@ -139,6 +148,8 @@ module BASER_257b_checker
                         if(i_rx_xcoded[1 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
                             inv_block_flag = 1'b1;
                         end
+                        
+                        next_rx_payloads[DATA_WIDTH * i +: DATA_WIDTH] = i_rx_xcoded[1 + DATA_WIDTH * i +: DATA_WIDTH];
                     end
                 end
 
@@ -157,6 +168,8 @@ module BASER_257b_checker
                                 if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hE;
                             end
 
                             // D7 D6 D5 D4 D3 D2 D1 S0
@@ -164,6 +177,8 @@ module BASER_257b_checker
                                 if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h8;
                             end
 
                             // Z7 Z6 Z5 Z4 D3 D2 D1 O0
@@ -173,6 +188,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hB;
                             end
 
                             // C7 C6 C5 C4 C3 C2 C1 T0
@@ -181,6 +198,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h7;
                             end
 
                             // C7 C6 C5 C4 C3 C2 T1 D0
@@ -190,6 +209,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[23 + DATA_WIDTH * i  +: 42] != {6{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h9;
                             end
 
                             // C7 C6 C5 C4 C3 T2 D1 D0
@@ -199,6 +220,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[30 + DATA_WIDTH * i  +: 35] != {5{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hA;
                             end
 
                             // C7 C6 C5 C4 T3 D2 D1 D0
@@ -208,6 +231,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h4;
                             end
 
                             // C7 C6 C5 T4 D3 D2 D1 D0
@@ -217,6 +242,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[46 + DATA_WIDTH * i  +: 21] != {3{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hC;
                             end
 
                             // C7 C6 T5 D4 D3 D2 D1 D0
@@ -226,6 +253,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h2;
                             end
 
                             // C7 T6 D5 D4 D3 D2 D1 D0
@@ -235,6 +264,8 @@ module BASER_257b_checker
                                 || i_rx_xcoded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h1;
                             end
 
                             // T7 D6 D5 D4 D3 D2 D1 D0
@@ -242,13 +273,20 @@ module BASER_257b_checker
                                 if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                     inv_block_flag = 1'b1;
                                 end
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hF;
                             end 
 
                             // Invalid format
                             default: begin
                                 inv_block_flag = 1'b1;
+                                                                                  
+                                next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h0;
                             end
                         endcase
+
+                        next_rx_payloads[DATA_WIDTH * i +: 4]       = i_rx_xcoded[5 + DATA_WIDTH * i +: 4]  ;
+                        next_rx_payloads[8 + DATA_WIDTH * i +: 56]  = i_rx_xcoded[9 + DATA_WIDTH * i +: 56] ;
                     end
 
                     // It is not the first ctrl frame found
@@ -354,9 +392,23 @@ module BASER_257b_checker
                                 inv_block_flag = 1'b1;
                             end
                         endcase
+                    
+                        next_rx_payloads[DATA_WIDTH * i +: DATA_WIDTH] = i_rx_xcoded[1 + DATA_WIDTH * i +: DATA_WIDTH];
                     end
                 end
             end
+
+            next_rx_coded_0[ 1 : 0] = {i_rx_xcoded[1], ~i_rx_xcoded[1]};
+            next_rx_coded_0[65 : 2] = next_rx_payloads[0 +: DATA_WIDTH];
+            
+            next_rx_coded_1[ 1 : 0] = {i_rx_xcoded[2], ~i_rx_xcoded[2]};
+            next_rx_coded_1[65 : 2] = next_rx_payloads[64 +: DATA_WIDTH];
+            
+            next_rx_coded_2[ 1 : 0] = {i_rx_xcoded[3], ~i_rx_xcoded[3]};
+            next_rx_coded_2[65 : 2] = next_rx_payloads[64 * 2 +: DATA_WIDTH];
+            
+            next_rx_coded_3[ 1 : 0] = {i_rx_xcoded[4], ~i_rx_xcoded[4]};
+            next_rx_coded_3[65 : 2] = next_rx_payloads[64 * 3 +: DATA_WIDTH];
         end
 
         // Update counter
@@ -369,6 +421,7 @@ module BASER_257b_checker
             rx_coded_1 <= '0;
             rx_coded_2 <= '0;
             rx_coded_3 <= '0;
+            rx_payloads <= '0;
             block_count <= '0;
             data_count <= '0;
             ctrl_count <= '0;
@@ -379,6 +432,7 @@ module BASER_257b_checker
             rx_coded_1 <= next_rx_coded_1;
             rx_coded_2 <= next_rx_coded_2;
             rx_coded_3 <= next_rx_coded_3;
+            rx_payloads <= next_rx_payloads;
             block_count <= next_block_count;
             data_count <= next_data_count;
             ctrl_count <= next_ctrl_count;

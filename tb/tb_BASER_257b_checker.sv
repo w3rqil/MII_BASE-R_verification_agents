@@ -79,7 +79,7 @@ module tb_BASER_257b_checker;
 
         i_rx_xcoded[129 +: 8*8] = {8{DATA_CHAR_PATTERN}}     ;
         
-        i_rx_xcoded[193 +:   8] = 8'h87                      ;   // "C7 C6 C5 C4 C3 C2 C1 T0" block type (0x87)
+        i_rx_xcoded[193 +:   8] = 8'h78                      ;   // "C7 C6 C5 C4 C3 C2 C1 T0" block type (0x87)
         i_rx_xcoded[201 +:   7] = 7'h0                       ;
         i_rx_xcoded[208 +: 7*7] = {7{CTRL_CHAR_PATTERN}}     ;
         
@@ -97,7 +97,7 @@ module tb_BASER_257b_checker;
 
         i_rx_xcoded[  5 +: 8*8] = {8{DATA_CHAR_PATTERN}}     ;
 
-        i_rx_xcoded[69  +:   8] = 8'h4B                      ;   // Ordered Set block type (0x4B) (2 nibbles)
+        i_rx_xcoded[69  +:   8] = 8'hB4                      ;   // Ordered Set block type (0x4B) (2 nibbles)
         i_rx_xcoded[77  +: 3*8] = {3{DATA_CHAR_PATTERN}}     ;
         i_rx_xcoded[101 +:   4] = OSET_CHAR_PATTERN          ;
         i_rx_xcoded[105 +:  28] = '0                         ;
