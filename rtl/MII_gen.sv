@@ -23,7 +23,7 @@ module MII_gen
                     IDLE_CODE   = 8'h07,
                     START_CODE  = 8'hFB,
                     EOF_CODE    = 8'hFD;
-    localparam []
+    
     localparam [3:0]    
                     IDLE    = 4'b0001,
                     PAYLOAD = 4'b0010,
@@ -37,8 +37,8 @@ module MII_gen
 
     reg [7:0] aux_reg; // for the remmaining 1 byte
 
-    integer i:
-
+    integer i;
+    integer aux_int;
 
     always @(*) begin
         next_counter = counter;
@@ -70,8 +70,8 @@ module MII_gen
                         if(counter >= (MAC_FRAME_LENGTH - 8)) begin // counter equals the mac message size in bytes
                                                                    //
                             if(!((MAC_FRAME_LENGTH - 8) % 64)) begin
-
-                                next_tx_data    = {(8 - ((MAC_FRAME_LENGTH - counter) + 2)){IDLE_CODE}  ,   // segun nosotros.  8           - [ MAC_FRAME_LENGTH - counter)     +       2               ]
+                                //aux_int = (MAC_FRAME_LENGTH - counter);
+                                next_tx_data    = {{(8 - (((MAC_FRAME_LENGTH) - counter) + 2)){IDLE_CODE}},   // segun nosotros.  8           - [ MAC_FRAME_LENGTH - counter)     +       2               ]
                                                                                                             //                  (64 bits)   - [ (TX DATA SIZE )                 +  (2 bytes aux y eof)  ]
                                                                                         EOF_CODE        ,
                                                    i_mii_tx_d[(MAC_FRAME_LENGTH - counter)*8    : 0]    , 
@@ -104,7 +104,7 @@ module MII_gen
 
             end
             DONE: begin
-                next_tx_data = {6{IDLE_CODE}, EOF_CODE, aux_reg};
+                next_tx_data = {{6{IDLE_CODE}}, EOF_CODE, aux_reg};
                 next_counter = 6;
                 next_state = IDLE;
                 
@@ -115,7 +115,23 @@ module MII_gen
 
 
     always @(posedge clk or negedge i_rst_n) begin 
+
+        if(!i_rst_n) begin
+            state       <= IDLE;
+            counter     <= 0;
+            //o_control   <= 0;
+            //o_mii_tx_d  <= 0;
+            
+        end else begin
+            state <= next_state;
+            counter <= next_counter;
+            //o_mii_tx_d <= next_tx_data;
+            //o_control   <= 8'hFF;
+        end 
     end
+
+    assign o_mii_tx_d   = next_tx_data;
+    assign o_control    = 8'hFF;
 
 
 endmodule
