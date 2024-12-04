@@ -64,27 +64,31 @@ module MII_gen
                         next_tx_data = {i_mii_tx_d[55:0], START_CODE};
                         aux_reg      = i_mii_tx_d [63:56];
                         next_counter = counter + 7;
+
+                        next_state = PAYLOAD;
     
                     end else begin
 
                         if(counter >= (MAC_FRAME_LENGTH - 8)) begin // counter equals the mac message size in bytes
-                                                                   //
-                            if(!((MAC_FRAME_LENGTH - 8) % 64)) begin
-                                //aux_int = (MAC_FRAME_LENGTH - counter);
-                                next_tx_data    = {{(8 - (((MAC_FRAME_LENGTH) - counter) + 2)){IDLE_CODE}},   // segun nosotros.  8           - [ MAC_FRAME_LENGTH - counter)     +       2               ]
-                                                                                                            //                  (64 bits)   - [ (TX DATA SIZE )                 +  (2 bytes aux y eof)  ]
-                                                                                        EOF_CODE        ,
-                                                   i_mii_tx_d[(MAC_FRAME_LENGTH - counter)*8    : 0]    , 
-                                                                                        aux_reg         };
+                            next_tx_data[7:0] = aux_reg;
 
-                                next_counter    = (8 - ((MAC_FRAME_LENGTH - counter) + 2))              ;
-                                next_state      = IDLE;
-                            end else begin
-                                next_tx_data = {i_mii_tx_d[55:0], aux_reg};
-                                aux_reg      = i_mii_tx_d [63:56];
-                                next_state = DONE;
+                            for(int i = 1; i < 8; i++) begin
+
+                                if(i < MAC_FRAME_LENGTH - counter) begin
+                                    next_tx_data[i*8 +: 8] = i_mii_tx_d[(i-1)*8 +: 8];
+
+                                end else if(i == MAC_FRAME_LENGTH - counter) begin
+                                    next_tx_data[i*8 +: 8] = EOF_CODE;
+
+                                end else begin
+                                    next_tx_data[i*8 +: 8] = IDLE_CODE;
+                                end
                             end
                             
+                            next_counter = counter;
+                            
+                            next_state = DONE;
+
                         end else begin
                             next_tx_data = {i_mii_tx_d[55:0], aux_reg};
                             aux_reg      = i_mii_tx_d [63:56];
@@ -92,9 +96,6 @@ module MII_gen
         
                             next_state = PAYLOAD;
                         end
-
-
-                        
                     end
     
 
@@ -104,10 +105,16 @@ module MII_gen
 
             end
             DONE: begin
-                next_tx_data = {{6{IDLE_CODE}}, EOF_CODE, aux_reg};
-                next_counter = 6;
+                if(MAC_FRAME_LENGTH - counter == 8) begin
+                    next_tx_data = {{7{IDLE_CODE}}, EOF_CODE};
+                    next_counter = 7;
+
+                end else begin
+                    next_tx_data = {8{IDLE_CODE}};
+                    next_counter = 8;
+                end
+
                 next_state = IDLE;
-                
             end
         endcase
         
