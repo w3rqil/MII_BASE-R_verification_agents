@@ -168,43 +168,43 @@ module BASER_257b_checker
                             case (i_rx_xcoded[5 + DATA_WIDTH * i +: 4])
     
                                 // C7 C6 C5 C4 C3 C2 C1 C0
-                                4'h1: begin
+                                4'hE: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
                                     end
                                     
                                     // Assign missing block type nibble
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hE;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h1;
                                 end
     
                                 // D7 D6 D5 D4 D3 D2 D1 S0
-                                4'h7: begin
+                                4'h8: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h8;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h7;
                                 end
     
                                 // Z7 Z6 Z5 Z4 D3 D2 D1 O0
-                                4'h4: begin
+                                4'hB: begin
                                     if(i_rx_xcoded[9  + DATA_WIDTH * i +: 24] != {3{DATA_CHAR_PATTERN}}
                                     || i_rx_xcoded[33 + DATA_WIDTH * i +:  4] != OSET_CHAR_PATTERN
                                     || i_rx_xcoded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hB;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h4;
                                 end
     
                                 // C7 C6 C5 C4 C3 C2 C1 T0
-                                4'h8: begin
+                                4'h7: begin
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +:  7] != '0
                                     || i_rx_xcoded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h7;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h8;
                                 end
     
                                 // C7 C6 C5 C4 C3 C2 T1 D0
@@ -230,14 +230,14 @@ module BASER_257b_checker
                                 end
     
                                 // C7 C6 C5 C4 T3 D2 D1 D0
-                                4'hB: begin
+                                4'h4: begin
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +: 24] != {3{DATA_CHAR_PATTERN}}
                                     || i_rx_xcoded[33 + DATA_WIDTH * i  +:  4] != '0
                                     || i_rx_xcoded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h4;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hB;
                                 end
     
                                 // C7 C6 C5 T4 D3 D2 D1 D0
@@ -252,25 +252,25 @@ module BASER_257b_checker
                                 end
     
                                 // C7 C6 T5 D4 D3 D2 D1 D0
-                                4'hD: begin
+                                4'h2: begin
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +: 40] != {5{DATA_CHAR_PATTERN}}
                                     || i_rx_xcoded[49 + DATA_WIDTH * i  +:  2] != '0
                                     || i_rx_xcoded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h2;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hD;
                                 end
     
                                 // C7 T6 D5 D4 D3 D2 D1 D0
-                                4'hE: begin
+                                4'h1: begin
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +: 48] != {6{DATA_CHAR_PATTERN}}
                                     || i_rx_xcoded[57 + DATA_WIDTH * i  +:  1] != '0
                                     || i_rx_xcoded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
                                         inv_block_flag = 1'b1;
                                     end
                                                                                       
-                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h1;
+                                    next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hE;
                                 end
     
                                 // T7 D6 D5 D4 D3 D2 D1 D0

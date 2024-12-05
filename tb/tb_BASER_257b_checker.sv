@@ -62,7 +62,7 @@ module tb_BASER_257b_checker;
 
         i_rx_xcoded[4 : 1] = 4'b1110                         ;
 
-        i_rx_xcoded[ 5 +:    4] = 4'h7                       ;   // Start block type (0x78)
+        i_rx_xcoded[ 5 +:    4] = 4'h8                       ;   // Start block type (0x78)
         i_rx_xcoded[ 9 +:  7*8] = {  7{DATA_CHAR_PATTERN}}   ;
 
         i_rx_xcoded[65 +: 3*64] = {3*8{DATA_CHAR_PATTERN}}   ;
@@ -112,7 +112,7 @@ module tb_BASER_257b_checker;
 
         i_rx_xcoded[  5 +: 8*8] = {8{DATA_CHAR_PATTERN}}     ;
 
-        i_rx_xcoded[69  +:    4] = 4'h4                      ;   // Ordered Set block type (0x4B) (1 nibble)
+        i_rx_xcoded[69  +:    4] = 4'hB                      ;   // Ordered Set block type (0x4B) (1 nibble)
         i_rx_xcoded[73  +:  3*8] = {3{DATA_CHAR_PATTERN}}    ;
         i_rx_xcoded[97  +:    4] = OSET_CHAR_PATTERN         ;
         i_rx_xcoded[101 +:   28] = '0                        ;
@@ -137,7 +137,7 @@ module tb_BASER_257b_checker;
         $display("Data Blocks Received: %0d"        ,   o_data_count                                                    );
         $display("Control Blocks Received: %0d"     ,   o_ctrl_count                                                    );
         $display("Invalid Blocks Received: %0d"     ,   o_inv_block_count                                               );
-        $display("Valid blocks percentage: %0f%%"     ,   (1 - real'(o_inv_block_count) / real'(o_block_count)) * 100   );
+        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_inv_block_count) / real'(o_block_count)) * 100     );
 
         $finish;
     end
