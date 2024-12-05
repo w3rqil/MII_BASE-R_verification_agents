@@ -3,7 +3,7 @@
 module tb_MII_gen;
     parameter           PAYLOAD_MAX_SIZE = 1500         ; // Maximum payload size in bytes
     parameter   [7:0]   PAYLOAD_CHAR_PATTERN = 8'h55    ;
-    parameter           PAYLOAD_LENGTH = 65              ;
+    parameter           PAYLOAD_LENGTH = 58              ;
 
     reg                clk         ;
     reg                i_rst_n     ;
@@ -26,20 +26,20 @@ module tb_MII_gen;
         i_mii_tx_er = 1'b0;
         i_mii_tx_d = 64'h0;
 
-        #100;
+        #1000;
         @(posedge clk);
         i_rst_n = 1'b1;
 
-        #100;
+        #1000;
         @(posedge clk);
         i_mii_tx_en = 1'b1;
         i_valid = 1'b1;
         
-        #100;
+        #1000;
         @(posedge clk);
         i_mii_tx_en = 1'b0;
 
-        #100;
+        #1000;
         @(posedge clk);
         $finish;
     end

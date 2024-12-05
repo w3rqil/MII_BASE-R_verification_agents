@@ -45,17 +45,20 @@ module MII_gen
         next_state = state;
         case(state) 
             IDLE: begin
+                next_tx_data = {8{IDLE_CODE}};
+
                 if(i_mii_tx_en) begin //mac start
                     if ((counter >= 12)) begin
-                        next_state = PAYLOAD;
                         next_counter = 0;
+                        next_state = PAYLOAD;
                     end else begin
+                        next_counter = counter + 8;
                         next_state = IDLE;
                     end
+                end else begin
+                    next_counter = counter + 8;
+                    next_state = IDLE;
                 end
-                next_tx_data = {8{IDLE_CODE}};
-                next_counter = counter + 8;
-
             end
             PAYLOAD: begin
                 if(i_valid)begin
@@ -99,10 +102,11 @@ module MII_gen
                     end
     
 
-                end 
-
-                next_state = IDLE;
-
+                end else begin
+                    next_tx_data = {8{IDLE_CODE}};
+                    next_counter = 8;
+                    next_state = IDLE;
+                end
             end
             DONE: begin
                 if(MAC_FRAME_LENGTH - counter == 8) begin
