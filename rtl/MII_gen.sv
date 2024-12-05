@@ -33,6 +33,7 @@ module MII_gen
 
     logic [15:0] counter, next_counter;
     logic [63:0] next_tx_data;
+    logic [7:0] next_tx_control;
 
 
     reg [7:0] aux_reg; // for the remmaining 1 byte
@@ -46,6 +47,7 @@ module MII_gen
         case(state) 
             IDLE: begin
                 next_tx_data = {8{IDLE_CODE}};
+                next_tx_control = 8'hFF;
 
                 if(i_mii_tx_en) begin //mac start
                     if ((counter >= 12)) begin
@@ -66,37 +68,42 @@ module MII_gen
                     if(counter == 0) begin
                         next_tx_data = {i_mii_tx_d[55:0], START_CODE};
                         aux_reg      = i_mii_tx_d [63:56];
-                        next_counter = counter + 7;
+                        next_tx_control = 8'h01;
 
+                        next_counter = counter + 7;
                         next_state = PAYLOAD;
     
                     end else begin
 
                         if(counter >= (MAC_FRAME_LENGTH - 8)) begin // counter equals the mac message size in bytes
                             next_tx_data[7:0] = aux_reg;
+                            next_tx_control[0] = 1'b0;
 
                             for(int i = 1; i < 8; i++) begin
 
                                 if(i < MAC_FRAME_LENGTH - counter) begin
                                     next_tx_data[i*8 +: 8] = i_mii_tx_d[(i-1)*8 +: 8];
+                                    next_tx_control[i] = 1'b0;
 
                                 end else if(i == MAC_FRAME_LENGTH - counter) begin
                                     next_tx_data[i*8 +: 8] = EOF_CODE;
+                                    next_tx_control[i] = 1'b1;
 
                                 end else begin
                                     next_tx_data[i*8 +: 8] = IDLE_CODE;
+                                    next_tx_control[i] = 1'b1;
                                 end
                             end
                             
                             next_counter = counter;
-                            
                             next_state = DONE;
 
                         end else begin
                             next_tx_data = {i_mii_tx_d[55:0], aux_reg};
                             aux_reg      = i_mii_tx_d [63:56];
+                            next_tx_control = 8'h00;
+
                             next_counter = counter + 8;
-        
                             next_state = PAYLOAD;
                         end
                     end
@@ -104,6 +111,8 @@ module MII_gen
 
                 end else begin
                     next_tx_data = {8{IDLE_CODE}};
+                    next_tx_control = 8'hFF;
+
                     next_counter = 8;
                     next_state = IDLE;
                 end
@@ -117,6 +126,7 @@ module MII_gen
                     next_tx_data = {8{IDLE_CODE}};
                     next_counter = 8;
                 end
+                next_tx_control = 8'hFF;
 
                 next_state = IDLE;
             end
@@ -142,7 +152,7 @@ module MII_gen
     end
 
     assign o_mii_tx_d   = next_tx_data;
-    assign o_control    = 8'hFF;
+    assign o_control    = next_tx_control;
 
 
 endmodule
