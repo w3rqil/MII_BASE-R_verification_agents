@@ -203,7 +203,7 @@ module mac_frame_generator #(
                     next_valid = 1'b0                                                                                   ;
                     next_done  = 1'b1                                                                                   ;
                     next_state = IDLE                                                                                   ;
-                    next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
+                    next_frame_out = {~crc, 32'b0}  ; // adds the crc at the end of the frame
                 end
                 default: begin
                     next_state = IDLE;
