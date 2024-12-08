@@ -30,6 +30,8 @@ module mac_frame_generator #(
         SEND_PADDING    = 3'd4                                                                                          ,
         DONE            = 3'd5                                                                                          ;
 
+    localparam [31:0] PLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc
+
     reg [2:0] state, next_state                                                                                         ;
     reg [(PAYLOAD_LENGTH)*8 - 1:0] payload_reg;
     // Internal registers                   
@@ -57,6 +59,8 @@ module mac_frame_generator #(
     reg valid, next_valid, next_done;
     reg [63:0] frame_out, next_frame_out;
     reg [15:0] next_payload_index, next_byte_counter, next_padding_counter;   
+
+    reg [31:0] crc, next_crc, data_xor;
     
     always_comb begin
 
@@ -110,15 +114,29 @@ module mac_frame_generator #(
 
                     //next_frame_out <= {header_shift_reg[111:48]}                                       ; // Send top 64 bits of the header
                     //header_shift_reg <= {header_shift_reg[47:0], 64'b0}                             ; // Shift left
+
                     next_frame_out     = gen_shift_reg [(PAYLOAD_LENGTH)*8 + 112 -1 : (PAYLOAD_LENGTH)*8 + 48]          ;
                     gen_shift_reg   = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                              ;
                     next_byte_counter    = byte_counter + 8                                                             ;
+
+                    // crc calc
+                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
+
+                    for (i = 0; i < 64; i = i + 1) begin
+                        if (data_xor[63]) begin
+                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                        end else begin
+                            next_crc = (data_xor << 1);
+                        end
+                    end
+                    //
 
                     if (byte_counter >= 14) begin   
                         next_state = SEND_PAYLOAD                                                                       ;
                     end else begin                                                      
                         next_state = SEND_HEADER                                                                        ;
                     end 
+
 
                 end 
                 SEND_PAYLOAD: begin 
@@ -135,6 +153,18 @@ module mac_frame_generator #(
                     next_payload_index       = payload_index + 1                                                        ;
                     next_byte_counter        = byte_counter + 8                                                         ;
 
+                    // crc calc
+                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
+
+                    for (i = 0; i < 64; i = i + 1) begin
+                        if (data_xor[63]) begin
+                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                        end else begin
+                            next_crc = (data_xor << 1);
+                        end
+                    end
+                    //
+                    
                     if (payload_index >= i_payload_length) begin
                         if (payload_index < MIN_PAYLOAD_SIZE) begin
                             next_state = SEND_PADDING; // Add padding if payload is too short
@@ -150,6 +180,19 @@ module mac_frame_generator #(
                     next_valid             = 1'b1                                                                       ;
                     next_frame_out         = 64'b0                                                                      ; // Send zero padding
                     next_padding_counter     = padding_counter + 8                                                      ;
+
+                    // crc calc
+                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
+
+                    for (i = 0; i < 64; i = i + 1) begin
+                        if (data_xor[63]) begin
+                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                        end else begin
+                            next_crc = (data_xor << 1);
+                        end
+                    end
+                    //
+
                     if (padding_counter >= (MIN_PAYLOAD_SIZE - i_payload_length)) begin
                         next_state = DONE                                                                               ;
                     end else begin                                                      
@@ -160,6 +203,7 @@ module mac_frame_generator #(
                     next_valid = 1'b0                                                                                   ;
                     next_done  = 1'b1                                                                                   ;
                     next_state = IDLE                                                                                   ;
+                    next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
                 end
                 default: begin
                     next_state = IDLE;
@@ -179,21 +223,23 @@ module mac_frame_generator #(
     // Sequential logic: Frame generation
     always_ff @(posedge clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            state               = IDLE                                                                                  ;
-            o_valid             = 1'b0                                                                                  ;
-            o_frame_out         = 64'b0                                                                                 ;
-            o_done              = 1'b0                                                                                  ;
-            byte_counter        = 16'd0                                                                                 ;
-            payload_index       = 16'd0                                                                                 ;
-            padding_counter     = 16'd0                                                                                 ;
-            header_shift_reg    = 112'b0                                                                                ;
-            payload_shift_reg   = 64'b0                                                                                 ;
+            state               <= IDLE                                                                                  ;
+            o_valid             <= 1'b0                                                                                  ;
+            crc                 <= 32'hFFFFFFFF                                                                          ;
+            o_frame_out         <= 64'b0                                                                                 ;
+            o_done              <= 1'b0                                                                                  ;
+            byte_counter        <= 16'd0                                                                                 ;
+            payload_index       <= 16'd0                                                                                 ;
+            padding_counter     <= 16'd0                                                                                 ;
+            header_shift_reg    <= 112'b0                                                                                ;
+            payload_shift_reg   <= 64'b0                                                                                 ;
         end else begin                                                  
             state           <= next_state                                                                               ;
             o_valid         <= next_valid                                                                               ;
             o_frame_out     <= next_frame_out                                                                           ;
             o_done          <= next_done                                                                                ; 
             byte_counter    <= next_byte_counter                                                                        ;
+            crc             <= next_crc                                                                                 ;
             payload_index   <= next_payload_index                                                                       ;
             padding_counter <= next_padding_counter                                                                     ;
 
