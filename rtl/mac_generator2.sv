@@ -30,7 +30,7 @@ module mac_frame_generator #(
         SEND_PADDING    = 3'd4                                                                                          ,
         DONE            = 3'd5                                                                                          ;
 
-    localparam [31:0] PLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc
+    localparam [31:0] POLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc
 
     reg [2:0] state, next_state                                                                                         ;
     reg [(PAYLOAD_LENGTH)*8 - 1:0] payload_reg;
@@ -55,6 +55,7 @@ module mac_frame_generator #(
     //     end
     // end
 
+    integer i;
 
     reg valid, next_valid, next_done;
     reg [63:0] frame_out, next_frame_out;
@@ -204,6 +205,7 @@ module mac_frame_generator #(
                     next_done  = 1'b1                                                                                   ;
                     next_state = IDLE                                                                                   ;
                     next_frame_out = {~crc, 32'b0}  ; // adds the crc at the end of the frame
+                    next_crc = 32'hFFFFFFFF;
                 end
                 default: begin
                     next_state = IDLE;
@@ -218,7 +220,7 @@ module mac_frame_generator #(
         
     end
 
-    integer i;
+    
     
     // Sequential logic: Frame generation
     always_ff @(posedge clk or negedge i_rst_n) begin
