@@ -93,8 +93,6 @@ module tb_BASER_gen_check;
         #300;
         i_txd           = 64'hAAAAAAAAAAAAAAAA;
         #300;
-        i_txd           = 64'h5555555555555555;
-        #300;
         i_txc           = 8'hFF;
         i_txd           = 64'h07070707070707FD;
         #300;
@@ -110,6 +108,23 @@ module tb_BASER_gen_check;
         i_txc           = 8'hFF;
         i_txd           = 64'h0707070707070707;
         #300;
+        
+        // Display after all tests
+        if(o_inv_block_count == 0) begin
+            // Invalid blocks Not found
+            $display("Final Result: TEST PASSED")                            ;
+        end
+        else begin
+            // Invalid blocks Found
+            $display("Final Result: TEST FAILED")                            ;
+        end
+        // Display all counters
+        $display("Total Blocks Received: %0d"       ,   o_block_count                                                   );
+        $display("Data Blocks Received: %0d"        ,   o_data_count                                                    );
+        $display("Control Blocks Received: %0d"     ,   o_ctrl_count                                                    );
+        $display("Invalid Blocks Received: %0d"     ,   o_inv_block_count                                               );
+        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_inv_block_count) / real'(o_block_count)) * 100     );
+
         $finish;
     end
 

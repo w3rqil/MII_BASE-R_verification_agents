@@ -105,6 +105,7 @@ logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_3 /* Frame register */       
 logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_reg_0 /* Transcoder register */                                                                                                                                                                                                                         ;
 logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_invert_reg_0 /* Transcoder register */                                                                                                                                                                                                                  ;
 logic [                    1 : 0] counter                                                                                                                                                                                                                                                            ;
+logic                             data_block       /*This flag indicates if the block contains data ou control information */                                                                                                                                                                        ;                                                                                                                                                                                                                 
 
 // Task to generate a PCS frame             
 task automatic generate_frame(              
@@ -211,13 +212,27 @@ task automatic convert_mii(
         if(i_txc[i]) begin
             case(i_txd[8* (i + 1) -1 -: 8])
                 // Replace MII control bytes with PCS control bytes
-                MII_IDLE  : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_IDLE                                                                                                                                                                                                                                       ;
-                MII_LPI   : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_LPI                                                                                                                                                                                                                                        ;
-                MII_START : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_START                                                                                                                                                                                                                                      ;
-                MII_TERM  : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_TERM                                                                                                                                                                                                                                       ;
-                MII_ERROR : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
-                MII_SEQ   : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_SEQ                                                                                                                                                                                                                                        ;
-                default   : pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
+                MII_IDLE  : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_IDLE                                                                                                                                                                                                                                       ;
+                end
+                MII_LPI   : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_LPI                                                                                                                                                                                                                                        ;
+                end
+                MII_START : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_START                                                                                                                                                                                                                                      ;
+                end
+                MII_TERM  : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_TERM                                                                                                                                                                                                                                       ;
+                end
+                MII_ERROR : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
+                end
+                MII_SEQ   : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_SEQ                                                                                                                                                                                                                                        ;
+                end
+                default   : begin 
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
+                end
             endcase 
         end
     end
@@ -242,7 +257,7 @@ task automatic invert_64_frame(
     
 endtask
 
-task automatic revert_64_frame(
+task automatic revert_66_frame(
     output logic [FRAME_WIDTH - 1 : 0] o_frame, /* Output frame 0  */
     input  logic [FRAME_WIDTH - 1 : 0] i_frame /* Input frame 0   */
 );
@@ -257,6 +272,21 @@ task automatic revert_64_frame(
     o_frame = frame                                                                                                                                                                                                                                                                                 ;
 endtask
 
+task automatic revert_64_frame(
+    output logic [DATA_WIDTH - 1 : 0] o_frame, /* Output frame 0  */
+    input  logic [DATA_WIDTH - 1 : 0] i_frame /* Input frame 0   */
+);
+
+    logic [DATA_WIDTH - 1 : 0] frame                                                                                                                                                                                                                                                                ;
+
+    for(int i = 0; i < DATA_WIDTH / 8; i = i + 1) begin
+        frame[DATA_WIDTH - 1 - CONTROL_WIDTH*i -: CONTROL_WIDTH] = i_frame[CONTROL_WIDTH * (i+1)- 1 -: CONTROL_WIDTH]                                                                                                                                                                               ;
+    end
+
+    o_frame = frame                                                                                                                                                                                                                                                                                 ;
+endtask
+
+
 task automatic invert_257_frame(
     output logic [TRANSCODER_WIDTH - 1 : 0] o_frame, /* Output frame 0  */
     input  logic [TRANSCODER_WIDTH - 1 : 0] i_frame /* Input frame 0   */
@@ -264,8 +294,20 @@ task automatic invert_257_frame(
     logic [TRANSCODER_WIDTH - 1 : 0] frame                                                                                                                                                                                                                                                          ;
 
     frame[0] = i_frame[TRANSCODER_WIDTH - 1]                                                                                                                                                                                                                                                        ;
-    for(int i = 0; i < 32; i = i + 1'b1) begin
-        frame[CONTROL_WIDTH * (i+1) -: CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                                            ;
+    if(data_block) begin
+        for(int i = 0; i < 32; i = i + 1'b1) begin
+            frame[CONTROL_WIDTH * (i+1) -: CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                                        ;
+        end
+    end
+    else begin
+        frame[1] = i_frame[TRANSCODER_WIDTH - 2]                                                                                                                                                                                                                                                    ;
+        frame[2] = i_frame[TRANSCODER_WIDTH - 3]                                                                                                                                                                                                                                                    ;
+        frame[3] = i_frame[TRANSCODER_WIDTH - 4]                                                                                                                                                                                                                                                    ;
+        frame[4] = i_frame[TRANSCODER_WIDTH - 5]                                                                                                                                                                                                                                                    ;
+        frame[CONTROL_WIDTH -: TRANSCODER_BLOCKS] = i_frame[TRANSCODER_WIDTH - 2 - TRANSCODER_BLOCKS -: TRANSCODER_BLOCKS]                                                                                                                                                                          ;
+        for(int i = 1; i < 32; i = i + 1'b1) begin
+            frame[CONTROL_WIDTH * (i+1) -: CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                                        ;
+        end
     end
 
     o_frame = frame                                                                                                                                                                                                                                                                                 ;
@@ -401,15 +443,17 @@ task automatic encode_frame(
     if((i_frame_reg_0[FRAME_WIDTH - 1 -: 2] == DATA_SYNC) && (i_frame_reg_1[FRAME_WIDTH - 1 -: 2] == DATA_SYNC) && (i_frame_reg_2[FRAME_WIDTH - 1 -: 2] == DATA_SYNC) && (i_frame_reg_3[FRAME_WIDTH - 1 -: 2] == DATA_SYNC)) begin
         // Data frame with header as 1
         transcoder = {1'b1, i_frame_reg_0[DATA_WIDTH - 1 : 0], i_frame_reg_1[DATA_WIDTH - 1 : 0], i_frame_reg_2[DATA_WIDTH - 1 : 0], i_frame_reg_3[DATA_WIDTH - 1 : 0]}                                                                                                                             ;                                                                                                                                                                                                                   ;
+        data_block = 1'b1                                                                                                                                                                                                                                                                           ;
     end
     else begin
         // Control frame with header as 0
         transcoder_hdr = 1'b0                                                                                                                                                                                                                                                                       ;
+        data_block = 1'b0                                                                                                                                                                                                                                                                           ;
         transcoder_control_hdr = {(i_frame_reg_0[FRAME_WIDTH - 1 -: 2] == DATA_SYNC), (i_frame_reg_1[FRAME_WIDTH - 1 -: 2] == DATA_SYNC), (i_frame_reg_2[FRAME_WIDTH - 1 -: 2] == DATA_SYNC), (i_frame_reg_3[FRAME_WIDTH - 1 -: 2] == DATA_SYNC)}                                                   ;
-        transcoder = (i_frame_reg_0[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1 -: 4], i_frame_reg_0[DATA_WIDTH - 9 : 0 ], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
-                     (i_frame_reg_1[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 1 -: 4], i_frame_reg_1[DATA_WIDTH - 9 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
-                     (i_frame_reg_2[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 -: 4], i_frame_reg_2[DATA_WIDTH - 9 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
-                                                                        {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 -: 4], i_frame_reg_3[DATA_WIDTH - 9 : 0]} ;
+        transcoder = (i_frame_reg_0[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 5 : 0 ], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
+                     (i_frame_reg_1[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 5 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
+                     (i_frame_reg_2[FRAME_WIDTH-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 5 : 0 ], i_frame_reg_3[DATA_WIDTH - 1 : 0]} :
+                                                                        {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[DATA_WIDTH - 1  : 0], i_frame_reg_1[DATA_WIDTH - 1 : 0 ], i_frame_reg_2[DATA_WIDTH - 1 : 0 ], i_frame_reg_3[DATA_WIDTH - 5 : 0]} ;
     end  
     o_transcoder = transcoder                                                                                                                                                                                                                                                                       ;                                                                                                                                                                                                                   ;
 endtask
@@ -491,19 +535,19 @@ always_ff @(posedge clk or negedge i_rst_n)
                 case(counter)
                 2'b00: begin
                     // Set the input as data
-                    mii_txd_0 <= i_txd                                                                                                                                                                                                                                                              ;
+                    revert_64_frame(mii_txd_0, i_txd)                                                                                                                                                                                                                                               ;
                     mii_txc_0 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                 
                 2'b01: begin                                                                                                                                                                                                                                                                   
-                    mii_txd_1 <= i_txd                                                                                                                                                                                                                                                              ;
+                    revert_64_frame(mii_txc_1, i_txd)                                                                                                                                                                                                                                               ;
                     mii_txc_1 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                 
                 2'b10: begin                                                                                                                                                                                                                                                                   
-                    mii_txd_2 <= i_txd                                                                                                                                                                                                                                                              ;
+                    revert_64_frame(mii_txd_2, i_txd)                                                                                                                                                                                                                                               ;
                     mii_txc_2 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                 
                 2'b11: begin                                                                                                                                                                                                                                                                   
-                    mii_txd_3 <= i_txd                                                                                                                                                                                                                                                              ;
+                    revert_64_frame(mii_txd_3, i_txd)                                                                                                                                                                                                                                               ;
                     mii_txc_3 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                 endcase
