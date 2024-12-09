@@ -61,7 +61,8 @@ module mac_frame_generator #(
     reg [63:0] frame_out, next_frame_out;
     reg [15:0] next_payload_index, next_byte_counter, next_padding_counter;   
 
-    reg [31:0] crc, next_crc, data_xor;
+    reg [31:0] crc, next_crc;
+    reg [63:0] data_xor;
     
     always_comb begin
 
@@ -121,15 +122,17 @@ module mac_frame_generator #(
                     next_byte_counter    = byte_counter + 8                                                             ;
 
                     // crc calc
-                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
+                    data_xor = {32'b0, crc} ^ next_frame_out; //initial xor // {crc,    32'b0}
 
                     for (i = 0; i < 64; i = i + 1) begin
                         if (data_xor[63]) begin
-                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                            data_xor = (data_xor << 1) ^ POLYNOMIAL;
                         end else begin
-                            next_crc = (data_xor << 1);
+                            data_xor = (data_xor << 1);
                         end
                     end
+
+                    next_crc = data_xor[31:0];
                     //
 
                     if (byte_counter >= 14) begin   
