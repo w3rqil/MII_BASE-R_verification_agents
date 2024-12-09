@@ -6,13 +6,13 @@ module BASER_257b_checker
     *---------WIDTH---------
     */
     // 64/66b blocks
-    parameter int   DATA_WIDTH          = 64                            ,
-    parameter int   HDR_WIDTH           = 2                             ,
-    parameter int   FRAME_WIDTH         = DATA_WIDTH + HDR_WIDTH        ,
+    parameter       DATA_WIDTH          = 64                            ,
+    parameter       HDR_WIDTH           = 2                             ,
+    parameter       FRAME_WIDTH         = DATA_WIDTH + HDR_WIDTH        ,
     // 256/257b blocks
-    parameter int   TC_DATA_WIDTH       = 4 * DATA_WIDTH                ,   // Without header
-    parameter int   TC_HDR_WIDTH        = 1                             ,   // 1 bit sync header
-    parameter int   TC_WIDTH            = TC_DATA_WIDTH + TC_HDR_WIDTH  ,
+    parameter       TC_DATA_WIDTH       = 4 * DATA_WIDTH                ,   // Without header
+    parameter       TC_HDR_WIDTH        = 1                             ,   // 1 bit sync header
+    parameter       TC_WIDTH            = TC_DATA_WIDTH + TC_HDR_WIDTH  ,
     /*
     *------BLOCK TYPE-------
     */
@@ -37,10 +37,15 @@ module BASER_257b_checker
     output logic    [FRAME_WIDTH-1:0]   o_rx_coded_1        ,   // 2nd 64b block
     output logic    [FRAME_WIDTH-1:0]   o_rx_coded_2        ,   // 3rd 64b block
     output logic    [FRAME_WIDTH-1:0]   o_rx_coded_3        ,   // 4th 64b block
-    output logic    [31:0]              o_block_count       ,   // Total number of 257b blocks received
-    output logic    [31:0]              o_data_count        ,   // Total number of 257b blocks with all 64b data block received
-    output logic    [31:0]              o_ctrl_count        ,   // Total number of 257b blocks with at least one 64b control block received
-    output logic    [31:0]              o_inv_block_count       // Total number of invalid blocks
+
+    output logic    [31:0]              o_block_count           ,   // Total number of 257b blocks received
+    output logic    [31:0]              o_data_count            ,   // Total number of 257b blocks with all 64b data block received
+    output logic    [31:0]              o_ctrl_count            ,   // Total number of 257b blocks with at least one 64b control block received
+    output logic    [31:0]              o_inv_block_count       ,   // Total number of invalid 257b blocks
+    output logic    [31:0]              o_inv_ctrl_block_count  ,   // Total number of 257b blocks with invalid 64b ctrl blocks
+    output logic    [31:0]              o_inv_data_block_count  ,   // Total number of 257b blocks with invalid 64b data blocks
+    output logic    [31:0]              o_inv_sequence_count    ,   // Total number of 257b blocks with with invalid 64b format
+    output logic    [31:0]              o_inv_sh_count              // Total number of 257b blocks with invalid sync header
 );
 
     // 1st 64b block
@@ -57,7 +62,7 @@ module BASER_257b_checker
     logic [FRAME_WIDTH-1:0] next_rx_coded_3 ;
 
     // Payload of the four 64b blocks
-    logic [TC_DATA_WIDTH-1:0] rx_payloads   ;
+    logic [TC_DATA_WIDTH-1:0] rx_payloads        ;
     logic [TC_DATA_WIDTH-1:0] next_rx_payloads   ;
 
     // Total blocks counter
@@ -69,37 +74,43 @@ module BASER_257b_checker
     // Ctrl blocks counter
     logic [31:0] ctrl_count             ;
     logic [31:0] next_ctrl_count        ;
-    // Total invalid blocks counter
+    
+    // Total invalid blocks counter and flag
     logic [31:0] inv_block_count        ;
     logic [31:0] next_inv_block_count   ;
-
-
-    /* More counters to use later */
-
-    // Invalid data blocks counter
+    logic        inv_block_flag;
+    // Invalid data blocks counter and flag
     logic [31:0] inv_data_block_count;
     logic [31:0] next_inv_data_block_count;
-    // Invalid ctrl blocks counter
+    logic        inv_data_block_flag;
+    // Invalid ctrl blocks counter and flag
     logic [31:0] inv_ctrl_block_count;
     logic [31:0] next_inv_ctrl_block_count;
-    // Invalid sync header counter
+    logic        inv_ctrl_block_flag;
+    // Invalid sync header counter and flag
     logic [31:0] inv_sh_count;
     logic [31:0] next_inv_sh_count;
-    // Invalid sequence counter
+    logic        inv_sh_flag;
+    // Invalid sequence counter and flag
     logic [31:0] inv_sequence_count;
     logic [31:0] next_inv_sequence_count;
-
+    logic        inv_sequence_flag;
     
     // Flag of first 64b ctrl block received in the 257b block
     logic        first_ctrl_block_flag;
-    // Flag of invalid 64b block detected
-    logic        inv_block_flag;
+
+    // Invalid 64b format position
+    logic [2:0] inv_format_pos;
 
     always @(*) begin
         // Increase total block counter every clock positive edge
-        next_block_count = block_count + 'd1;
-        first_ctrl_block_flag = 1'b0;
-        inv_block_flag = 1'b0;
+        next_block_count        = block_count + 'd1 ;
+        first_ctrl_block_flag   = 1'b0              ;
+        inv_block_flag          = 1'b0              ;
+        inv_data_block_flag     = 1'b0              ;
+        inv_ctrl_block_flag     = 1'b0              ;
+        inv_sh_flag             = 1'b0              ;
+        inv_sequence_flag       = 1'b0              ;
 
         // Detected all data blocks
         if(i_rx_xcoded[0]) begin
@@ -109,7 +120,8 @@ module BASER_257b_checker
 
             // Valid block verification logic
             if(i_rx_xcoded[1 +: TC_DATA_WIDTH] != {32{DATA_CHAR_PATTERN}}) begin
-                inv_block_flag = 1'b1;
+                inv_block_flag          = 1'b1;
+                inv_data_block_flag     = 1'b1;
             end
 
             // Assign the next four 64b blocks
@@ -140,6 +152,8 @@ module BASER_257b_checker
                             // The frame has to be all Data characters
                             if(i_rx_xcoded[5 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
                                 inv_block_flag = 1'b1;
+                                inv_ctrl_block_flag = 1'b1;
+                                inv_sequence_flag = 1'b1;
                             end
     
                             next_rx_payloads[DATA_WIDTH * i +: DATA_WIDTH] = i_rx_xcoded[5 + DATA_WIDTH * i +: DATA_WIDTH];
@@ -151,6 +165,8 @@ module BASER_257b_checker
                             // The frame has to be all Data characters
                             if(i_rx_xcoded[1 + DATA_WIDTH * i +: DATA_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
                                 inv_block_flag = 1'b1;
+                                inv_ctrl_block_flag = 1'b1;
+                                inv_sequence_flag = 1'b1;
                             end
                             
                             next_rx_payloads[DATA_WIDTH * i +: DATA_WIDTH] = i_rx_xcoded[1 + DATA_WIDTH * i +: DATA_WIDTH];
@@ -171,6 +187,7 @@ module BASER_257b_checker
                                 4'hE: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                     
                                     // Assign missing block type nibble
@@ -181,6 +198,7 @@ module BASER_257b_checker
                                 4'h8: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h7;
@@ -192,6 +210,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[33 + DATA_WIDTH * i +:  4] != OSET_CHAR_PATTERN
                                     || i_rx_xcoded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h4;
@@ -202,6 +221,7 @@ module BASER_257b_checker
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +:  7] != '0
                                     || i_rx_xcoded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h8;
@@ -213,6 +233,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[17 + DATA_WIDTH * i  +:  6] != '0
                                     || i_rx_xcoded[23 + DATA_WIDTH * i  +: 42] != {6{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h9;
@@ -224,6 +245,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[25 + DATA_WIDTH * i  +:  5] != '0
                                     || i_rx_xcoded[30 + DATA_WIDTH * i  +: 35] != {5{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hA;
@@ -235,6 +257,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[33 + DATA_WIDTH * i  +:  4] != '0
                                     || i_rx_xcoded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hB;
@@ -246,6 +269,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[41 + DATA_WIDTH * i  +:  3] != '0
                                     || i_rx_xcoded[46 + DATA_WIDTH * i  +: 21] != {3{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hC;
@@ -257,6 +281,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[49 + DATA_WIDTH * i  +:  2] != '0
                                     || i_rx_xcoded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hD;
@@ -268,6 +293,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[57 + DATA_WIDTH * i  +:  1] != '0
                                     || i_rx_xcoded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hE;
@@ -277,6 +303,7 @@ module BASER_257b_checker
                                 4'hF: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                                                                       
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'hF;
@@ -285,7 +312,10 @@ module BASER_257b_checker
                                 // Invalid format
                                 default: begin
                                     inv_block_flag = 1'b1;
-                                                                                      
+                                    inv_ctrl_block_flag = 1'b1;
+                                    inv_sequence_flag = 1'b1;
+                                    inv_format_pos = i;
+                                    
                                     next_rx_payloads[4 + DATA_WIDTH * i +: 4] = 4'h0;
                                 end
                             endcase
@@ -305,6 +335,7 @@ module BASER_257b_checker
                                 8'h1E: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {8{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -312,6 +343,7 @@ module BASER_257b_checker
                                 8'h78: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -321,6 +353,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[33 + DATA_WIDTH * i +:  4] != OSET_CHAR_PATTERN
                                     || i_rx_xcoded[37 + DATA_WIDTH * i +: 28] != '0                      ) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -329,6 +362,7 @@ module BASER_257b_checker
                                     if(i_rx_xcoded[ 9 + DATA_WIDTH * i  +:  7] != '0
                                     || i_rx_xcoded[16 + DATA_WIDTH * i  +: 49] != {7{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -338,6 +372,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[17 + DATA_WIDTH * i  +:  6] != '0
                                     || i_rx_xcoded[23 + DATA_WIDTH * i  +: 42] != {6{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -347,6 +382,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[25 + DATA_WIDTH * i  +:  5] != '0
                                     || i_rx_xcoded[30 + DATA_WIDTH * i  +: 35] != {5{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -356,6 +392,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[33 + DATA_WIDTH * i  +:  4] != '0
                                     || i_rx_xcoded[37 + DATA_WIDTH * i  +: 28] != {4{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -365,6 +402,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[41 + DATA_WIDTH * i  +:  3] != '0
                                     || i_rx_xcoded[46 + DATA_WIDTH * i  +: 21] != {3{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -374,6 +412,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[49 + DATA_WIDTH * i  +:  2] != '0
                                     || i_rx_xcoded[51 + DATA_WIDTH * i  +: 14] != {2{CTRL_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -383,6 +422,7 @@ module BASER_257b_checker
                                     || i_rx_xcoded[57 + DATA_WIDTH * i  +:  1] != '0
                                     || i_rx_xcoded[58 + DATA_WIDTH * i  +:  7] != CTRL_CHAR_PATTERN      ) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end
     
@@ -390,12 +430,15 @@ module BASER_257b_checker
                                 8'hFF: begin
                                     if(i_rx_xcoded[9 + DATA_WIDTH * i +: 56] != {7{DATA_CHAR_PATTERN}}) begin
                                         inv_block_flag = 1'b1;
+                                        inv_ctrl_block_flag = 1'b1;
                                     end
                                 end 
     
                                 // Invalid format
                                 default: begin
                                     inv_block_flag = 1'b1;
+                                    inv_ctrl_block_flag = 1'b1;
+                                    inv_sequence_flag = 1'b1;
                                 end
                             endcase
                         
@@ -406,6 +449,22 @@ module BASER_257b_checker
                 end
     
                 // Assign the corresponding 64b sync headers
+                if(inv_sequence_flag) begin
+                    case (inv_format_pos)
+                        2'd0: begin
+                            next_rx_coded_0
+                        end 
+                        2'd1: begin
+                            
+                        end 
+                        2'd2: begin
+                            
+                        end 
+                        2'd3: begin
+                            
+                        end 
+                    endcase
+                end
                 next_rx_coded_0[1:0] = {i_rx_xcoded[1], ~i_rx_xcoded[1]};
                 next_rx_coded_1[1:0] = {i_rx_xcoded[2], ~i_rx_xcoded[2]};
                 next_rx_coded_2[1:0] = {i_rx_xcoded[3], ~i_rx_xcoded[3]};
@@ -415,6 +474,8 @@ module BASER_257b_checker
             // If the 4 bits are '1111'
             else begin
                 inv_block_flag = 1'b1;
+                inv_ctrl_block_flag = 1'b1;
+                inv_sh_flag = 1'b1;
                 
                 // Assign payload
                 next_rx_payloads = {i_rx_xcoded[TC_WIDTH-1 : 9] , 
@@ -436,41 +497,57 @@ module BASER_257b_checker
         end
 
         // Update counter
-        next_inv_block_count = inv_block_count + inv_block_flag;
+        next_inv_block_count        = inv_block_count       + inv_block_flag        ;
+        next_inv_ctrl_block_count   = inv_ctrl_block_count  + inv_ctrl_block_flag   ;
+        next_inv_data_block_count   = inv_data_block_count  + inv_data_block_flag   ;
+        next_inv_sequence_count     = inv_sequence_count    + inv_sequence_flag     ;
+        next_inv_sh_count           = inv_sh_count          + inv_sh_flag           ;
     end
 
     always @(posedge clk or posedge i_rst) begin
         if(i_rst) begin
-            rx_coded_0 <= '0;
-            rx_coded_1 <= '0;
-            rx_coded_2 <= '0;
-            rx_coded_3 <= '0;
-            rx_payloads <= '0;
-            block_count <= '0;
-            data_count <= '0;
-            ctrl_count <= '0;
-            inv_block_count <= '0;
+            rx_coded_0              <= '0;
+            rx_coded_1              <= '0;
+            rx_coded_2              <= '0;
+            rx_coded_3              <= '0;
+            rx_payloads             <= '0;
+            block_count             <= '0;
+            data_count              <= '0;
+            ctrl_count              <= '0;
+            inv_block_count         <= '0;
+            inv_ctrl_block_count    <= '0;
+            inv_data_block_count    <= '0;
+            inv_sequence_count      <= '0;
+            inv_sh_count            <= '0;
         end
         else begin
-            rx_coded_0 <= next_rx_coded_0;
-            rx_coded_1 <= next_rx_coded_1;
-            rx_coded_2 <= next_rx_coded_2;
-            rx_coded_3 <= next_rx_coded_3;
-            rx_payloads <= next_rx_payloads;
-            block_count <= next_block_count;
-            data_count <= next_data_count;
-            ctrl_count <= next_ctrl_count;
-            inv_block_count <= next_inv_block_count;
+            rx_coded_0              <= next_rx_coded_0          ;
+            rx_coded_1              <= next_rx_coded_1          ;
+            rx_coded_2              <= next_rx_coded_2          ;
+            rx_coded_3              <= next_rx_coded_3          ;
+            rx_payloads             <= next_rx_payloads         ;
+            block_count             <= next_block_count         ;
+            data_count              <= next_data_count          ;
+            ctrl_count              <= next_ctrl_count          ;
+            inv_block_count         <= next_inv_block_count     ;
+            inv_ctrl_block_count    <= next_inv_ctrl_block_count;
+            inv_data_block_count    <= next_inv_data_block_count;
+            inv_sequence_count      <= next_inv_sequence_count  ;
+            inv_sh_count            <= next_inv_sh_count        ;
         end
     end
 
-    assign o_rx_coded_0         = rx_coded_0        ;
-    assign o_rx_coded_1         = rx_coded_1        ;
-    assign o_rx_coded_2         = rx_coded_2        ;
-    assign o_rx_coded_3         = rx_coded_3        ;
-    assign o_block_count        = block_count       ;
-    assign o_ctrl_count         = ctrl_count        ;
-    assign o_data_count         = data_count        ;
-    assign o_inv_block_count    = inv_block_count   ;
+    assign o_rx_coded_0             = rx_coded_0            ;
+    assign o_rx_coded_1             = rx_coded_1            ;
+    assign o_rx_coded_2             = rx_coded_2            ;
+    assign o_rx_coded_3             = rx_coded_3            ;
+    assign o_block_count            = block_count           ;
+    assign o_ctrl_count             = ctrl_count            ;
+    assign o_data_count             = data_count            ;
+    assign o_inv_block_count        = inv_block_count       ;
+    assign o_inv_ctrl_block_count   = inv_ctrl_block_count  ;
+    assign o_inv_data_block_count   = inv_data_block_count  ;
+    assign o_inv_sequence_count     = inv_sequence_count    ;
+    assign o_inv_sh_count           = inv_sh_count          ;
 
 endmodule
