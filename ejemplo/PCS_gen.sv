@@ -72,40 +72,40 @@ localparam [CONTROL_WIDTH - 1 : 0]
     BLOCK_TYPE_FIELD_10 = 8'hFF   /* Block type field 10 */                                                                                                                                                                                                                                         ;
 
 localparam [CONTROL_WIDTH - 1 : 0]
-    TXC_TYPE_FIELD_0  = 8'hFF   /* All control      */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_1  = 8'h01   /* All data         */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_2  = 8'hF1   /* Ordered set      */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_3  = 8'hFF   /* End in lane 0    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_4  = 8'hFE   /* End in lane 1    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_5  = 8'hFC   /* End in lane 2    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_6  = 8'hF8   /* End in lane 3    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_7  = 8'hF0   /* End in lane 4    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_8  = 8'hE0   /* End in lane 5    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_9  = 8'hC0   /* End in lane 6    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_FIELD_10 = 8'h80   /* End in lane 7    */                                                                                                                                                                                                                                               ,
-    TXC_TYPE_DATA     = 8'h00                                                                                                                                                                                                                                                                        ;                                        
+    TXC_TYPE_FIELD_0  = 8'hFF   /* All control      */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_1  = 8'h01   /* All data         */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_2  = 8'hF1   /* Ordered set      */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_3  = 8'hFF   /* End in lane 0    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_4  = 8'hFE   /* End in lane 1    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_5  = 8'hFC   /* End in lane 2    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_6  = 8'hF8   /* End in lane 3    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_7  = 8'hF0   /* End in lane 4    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_8  = 8'hE0   /* End in lane 5    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_9  = 8'hC0   /* End in lane 6    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_FIELD_10 = 8'h80   /* End in lane 7    */                                                                                                                                                                                                                                              ,
+    TXC_TYPE_DATA     = 8'h00                                                                                                                                                                                                                                                                       ;                                        
 
 // Local variables              
-logic [CONTROL_WIDTH     - 1 : 0] mii_txc_0     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [CONTROL_WIDTH     - 1 : 0] mii_txc_1     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [CONTROL_WIDTH     - 1 : 0] mii_txc_2     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [CONTROL_WIDTH     - 1 : 0] mii_txc_3     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [DATA_WIDTH        - 1 : 0] mii_txd_0     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [DATA_WIDTH        - 1 : 0] mii_txd_1     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [DATA_WIDTH        - 1 : 0] mii_txd_2     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [DATA_WIDTH        - 1 : 0] mii_txd_3     /* Output frame */                                                                                                                                                                                                                                   ;
-logic [FRAME_WIDTH       - 1 : 0] frame_reg_0    /* Frame register */                                                                                                                                                                                                                                ;
-logic [FRAME_WIDTH       - 1 : 0] frame_reg_1    /* Frame register */                                                                                                                                                                                                                                ;
-logic [FRAME_WIDTH       - 1 : 0] frame_reg_2    /* Frame register */                                                                                                                                                                                                                                ;
-logic [FRAME_WIDTH       - 1 : 0] frame_reg_3    /* Frame register */                                                                                                                                                                                                                                ;                                                       
-logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_0 /* Frame register */                                                                                                                                                                                                                            ;
-logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_1 /* Frame register */                                                                                                                                                                                                                            ;
-logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_2 /* Frame register */                                                                                                                                                                                                                            ;
-logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_3 /* Frame register */                                                                                                                                                                                                                            ;
-logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_reg_0 /* Transcoder register */                                                                                                                                                                                                                         ;
-logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_invert_reg_0 /* Transcoder register */                                                                                                                                                                                                                  ;
-logic [                    1 : 0] counter                                                                                                                                                                                                                                                            ;
-logic                             data_block       /*This flag indicates if the block contains data ou control information */                                                                                                                                                                        ;                                                                                                                                                                                                                 
+logic [CONTROL_WIDTH     - 1 : 0] mii_txc_0     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [CONTROL_WIDTH     - 1 : 0] mii_txc_1     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [CONTROL_WIDTH     - 1 : 0] mii_txc_2     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [CONTROL_WIDTH     - 1 : 0] mii_txc_3     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [DATA_WIDTH        - 1 : 0] mii_txd_0     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [DATA_WIDTH        - 1 : 0] mii_txd_1     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [DATA_WIDTH        - 1 : 0] mii_txd_2     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [DATA_WIDTH        - 1 : 0] mii_txd_3     /* Output frame */                                                                                                                                                                                                                                  ;
+logic [FRAME_WIDTH       - 1 : 0] frame_reg_0    /* Frame register */                                                                                                                                                                                                                               ;
+logic [FRAME_WIDTH       - 1 : 0] frame_reg_1    /* Frame register */                                                                                                                                                                                                                               ;
+logic [FRAME_WIDTH       - 1 : 0] frame_reg_2    /* Frame register */                                                                                                                                                                                                                               ;
+logic [FRAME_WIDTH       - 1 : 0] frame_reg_3    /* Frame register */                                                                                                                                                                                                                               ;                                                       
+logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_0 /* Frame register */                                                                                                                                                                                                                           ;
+logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_1 /* Frame register */                                                                                                                                                                                                                           ;
+logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_2 /* Frame register */                                                                                                                                                                                                                           ;
+logic [FRAME_WIDTH       - 1 : 0] frame_invert_reg_3 /* Frame register */                                                                                                                                                                                                                           ;
+logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_reg_0 /* Transcoder register */                                                                                                                                                                                                                        ;
+logic [TRANSCODER_WIDTH  - 1 : 0] transcoder_invert_reg_0 /* Transcoder register */                                                                                                                                                                                                                 ;
+logic [                    1 : 0] counter                                                                                                                                                                                                                                                           ;
+logic                             data_block       /*This flag indicates if the block contains data ou control information */                                                                                                                                                                       ;                                                                                                                                                                                                                 
 
 // Task to generate a PCS frame             
 task automatic generate_frame(              
@@ -119,16 +119,16 @@ task automatic generate_frame(
     automatic int                         insert_control   /* Flag to insert control byte */                                                                                                                                                                                                        ;             
 
     // Generate a random data block             
-    data_block = $urandom($time + i_number) % 64'hFFFFFFFFFFFFFFFF                                                                                                                                                                                                                                  ;                                            
+    data_block = $urandom(i_number) % 64'hFFFFFFFFFFFFFFFF                                                                                                                                                                                                                                  ;                                            
 
     // Decide wheter insert control byte or not             
-    insert_control = $urandom($time + i_number) % 100                                                                                                                                                                                                                                               ;
+    insert_control = $urandom(i_number) % 100                                                                                                                                                                                                                                               ;
 
     // Create the frame             
     if (insert_control < PROB) begin                
         // Choose a random control byte between 0 to 2              
         // Choose a byte position to insert control byte                
-        case ($urandom($time + i_number) % 11)              
+        case ($urandom(i_number) % 11)              
             0: begin
                 // [ FF ] [ CTRL CTRL CTRL CTRL CTRL CTRL CTRL  CTRL ]                
                 txd =  {MII_IDLE[CONTROL_WIDTH - 2 : 0]                                                                                                                                                                                                                                             , 
@@ -202,38 +202,42 @@ task automatic generate_frame(
 endtask       
 
 task automatic convert_mii(
+    output logic [DATA_WIDTH    - 1 : 0] o_pcs_txd /* Output data byte*/                                                                                                                                                                                                                            ,                                              
     input  logic [CONTROL_WIDTH - 1 : 0] i_txc /* Input control byte*/                                                                                                                                                                                                                              ,
-    input  logic [DATA_WIDTH    - 1 : 0] i_txd /* Input data byte   */                                                                                                                                                                                                                              ,                 
-    output logic [DATA_WIDTH    - 1 : 0] o_pcs_txd /* Output data byte*/                                                                                                                                                                                                                                                                          
+    input  logic [DATA_WIDTH    - 1 : 0] i_txd /* Input data byte   */                                                                                                                                                                                                                                               
 );
     logic [DATA_WIDTH - 1 : 0] pcs_txd /* Output data byte*/                                                                                                                                                                                                                                        ;
     int i;
     for(i = 0; i < DATA_WIDTH / 8; i = i + 1) begin
         if(i_txc[i]) begin
+            $display("counter %d", i);
             case(i_txd[8* (i + 1) -1 -: 8])
                 // Replace MII control bytes with PCS control bytes
                 MII_IDLE  : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_IDLE                                                                                                                                                                                                                                       ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_IDLE                                                                                                                                                                                                                                           ;
                 end
                 MII_LPI   : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_LPI                                                                                                                                                                                                                                        ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_LPI                                                                                                                                                                                                                                            ;
                 end
                 MII_START : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_START                                                                                                                                                                                                                                      ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_START                                                                                                                                                                                                                                          ;
                 end
                 MII_TERM  : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_TERM                                                                                                                                                                                                                                       ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_TERM                                                                                                                                                                                                                                           ;
                 end
                 MII_ERROR : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                          ;
                 end
                 MII_SEQ   : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_SEQ                                                                                                                                                                                                                                        ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_SEQ                                                                                                                                                                                                                                            ;
                 end
                 default   : begin 
-                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                      ;
+                    pcs_txd[8*(i+1) - 1 -: 8] = CTRL_ERROR                                                                                                                                                                                                                                          ;
                 end
             endcase 
+        end
+        else begin
+            pcs_txd[8*(i+1) - 1 -: 8] = i_txd[8*(i+1) - 1 -: 8]                                                                                                                                                                                                                                   ;
         end
     end
 
@@ -248,9 +252,9 @@ task automatic invert_64_frame(
 
     logic [FRAME_WIDTH - 1 : 0] frame                                                                                                                                                                                                                                                               ;
 
-    frame [HDR_WIDTH - 1: 0] = i_frame [FRAME_WIDTH - 1 -: HDR_WIDTH]                                                                                                                                                                                                                                 ;
+    frame [HDR_WIDTH - 1: 0] = i_frame [FRAME_WIDTH - 1 -: HDR_WIDTH]                                                                                                                                                                                                                               ;
     for(int i = 0; i < DATA_WIDTH / 8; i = i + 1) begin
-        frame[CONTROL_WIDTH * (i+1) + HDR_WIDTH - 1 -: CONTROL_WIDTH] = i_frame[DATA_WIDTH - 1 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                                              ;  
+        frame[CONTROL_WIDTH * (i+1) + HDR_WIDTH - 1 -: CONTROL_WIDTH] = i_frame[DATA_WIDTH - 1 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                                  ;  
     end
 
     o_frame = frame                                                                                                                                                                                                                                                                                 ;
@@ -264,7 +268,7 @@ task automatic revert_66_frame(
 
     logic [FRAME_WIDTH - 1 : 0] frame                                                                                                                                                                                                                                                               ;
 
-    frame[FRAME_WIDTH - 1 -: HDR_WIDTH] = i_frame[HDR_WIDTH -: 0]                                                                                                                                                                                                                                   ;
+    frame[FRAME_WIDTH - 1 -: HDR_WIDTH] = i_frame[HDR_WIDTH]                                                                                                                                                                                                                                   ;
     for(int i = 0; i < DATA_WIDTH / 8; i = i + 1) begin
         frame[DATA_WIDTH - 1 - CONTROL_WIDTH*i -: CONTROL_WIDTH] = i_frame[CONTROL_WIDTH * (i+1) + HDR_WIDTH - 1 -: CONTROL_WIDTH]                                                                                                                                                                  ;
     end
@@ -328,21 +332,39 @@ task automatic revert_257_frame(
     o_frame = frame                                                                                                                                                                                                                                                                                 ;
 endtask
 
-task automatic mii_to_pcs(
-    input  logic [DATA_WIDTH    - 1 : 0] i_txd /* Input control byte*/                                                                                                                                                                                                                              ,
-    input  logic [CONTROL_WIDTH - 1 : 0] i_txc /* Input data byte   */                                                                                                                                                                                                                              ,
-    output logic [FRAME_WIDTH   - 1 : 0] o_frame /* Output frame 0  */                                                                                                                                                                                                                              
+task automatic invert_txc_byte(
+    output logic [CONTROL_WIDTH - 1 : 0] o_txc, /* Output frame 0  */
+    input  logic [CONTROL_WIDTH - 1 : 0] i_txc /* Input frame 0   */
 );
 
-    logic [DATA_WIDTH  - 1 : 0] pcs_data /* Output data byte*/                                                                                                                                                                                                                                      ;
-    logic [FRAME_WIDTH - 1 : 0] frame /* Frame 0 */                                                                                                                                                                                                                                                 ;
-    logic [FRAME_WIDTH - 1 : 0] invert_frame /* Frame 0 */                                                                                                                                                                                                                                          ;
+    logic [CONTROL_WIDTH - 1 : 0] txc                                                                                                                                                                                                                                                               ;
 
-    convert_mii(i_txc, i_txd, pcs_data)                                                                                                                                                                                                                                                             ;
+    for(int i = 0; i < CONTROL_WIDTH; i = i + 1) begin
+        txc[CONTROL_WIDTH - (i+1)] = i_txc[i]                                                                                                                                                                                                                                         ;
+    end
+
+    o_txc = txc                                                                                                                                                                                                                                                                                     ;
+endtask
+
+task automatic mii_to_pcs(
+    output logic [FRAME_WIDTH   - 1 : 0] o_frame /* Output frame 0  */                                                                                                                                                                                                                              ,
+    input  logic [DATA_WIDTH    - 1 : 0] i_txd /* Input control byte*/                                                                                                                                                                                                                              ,
+    input  logic [CONTROL_WIDTH - 1 : 0] i_txc /* Input data byte   */                                                                                                                                                                                                                              
+);
+
+    logic [DATA_WIDTH    - 1 : 0] pcs_data /* Output data byte*/                                                                                                                                                                                                                                    ;
+    logic [FRAME_WIDTH   - 1 : 0] frame /* Frame 0 */                                                                                                                                                                                                                                               ;
+    logic [FRAME_WIDTH   - 1 : 0] invert_frame /* Frame 0 */                                                                                                                                                                                                                                        ;
+    logic [CONTROL_WIDTH - 1 : 0] txc /* Control byte */                                                                                                                                                                                                                                            ;
+
+    invert_txc_byte(txc, i_txc)                                                                                                                                                                                                                                                                     ;
+
+    convert_mii(pcs_data, txc, i_txd)                                                                                                                                                                                                                                                             ;
     
-    if(i_txc[0]) begin
+    if(i_txc != TXC_TYPE_DATA) begin
         // Compare control byte with PCS control bytes and generate frame
-        frame =     (i_txc == TXC_TYPE_FIELD_0)                                         ? {CTRL_SYNC, BLOCK_TYPE_FIELD_0, 
+        frame =     (i_txc == TXC_TYPE_FIELD_0 && 
+                    i_txd[DATA_WIDTH - 0*CONTROL_WIDTH -1 -: CONTROL_WIDTH] != MII_TERM) ? {CTRL_SYNC, BLOCK_TYPE_FIELD_0, 
                         pcs_data[DATA_WIDTH - 0*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1], 
                         pcs_data[DATA_WIDTH - 1*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1], 
                         pcs_data[DATA_WIDTH - 2*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1],
@@ -539,7 +561,7 @@ always_ff @(posedge clk or negedge i_rst_n)
                     mii_txc_0 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                 
                 2'b01: begin                                                                                                                                                                                                                                                                   
-                    revert_64_frame(mii_txc_1, i_txd)                                                                                                                                                                                                                                               ;
+                    revert_64_frame(mii_txd_1, i_txd)                                                                                                                                                                                                                                               ;
                     mii_txc_1 <= i_txc                                                                                                                                                                                                                                                              ;
                 end                                                                                                                                                                                                                                                                 
                 2'b10: begin                                                                                                                                                                                                                                                                   
@@ -556,10 +578,10 @@ always_ff @(posedge clk or negedge i_rst_n)
             if(i_valid[0]) begin
                 if(counter == 0) begin
                     // Convert MII to PCS
-                    mii_to_pcs(mii_txd_0, mii_txc_0, frame_reg_0)                                                                                                                                                                                                                                   ;
-                    mii_to_pcs(mii_txd_1, mii_txc_1, frame_reg_1)                                                                                                                                                                                                                                   ;
-                    mii_to_pcs(mii_txd_2, mii_txc_2, frame_reg_2)                                                                                                                                                                                                                                   ;
-                    mii_to_pcs(mii_txd_3, mii_txc_3, frame_reg_3)                                                                                                                                                                                                                                   ;
+                    mii_to_pcs(frame_reg_0, mii_txd_0, mii_txc_0)                                                                                                                                                                                                                                   ;
+                    mii_to_pcs(frame_reg_1, mii_txd_1, mii_txc_1)                                                                                                                                                                                                                                   ;
+                    mii_to_pcs(frame_reg_2, mii_txd_2, mii_txc_2)                                                                                                                                                                                                                                   ;
+                    mii_to_pcs(frame_reg_3, mii_txd_3, mii_txc_3)                                                                                                                                                                                                                                   ;
                     invert_64_frame(frame_invert_reg_0, frame_reg_0)                                                                                                                                                                                                                                ;
                     invert_64_frame(frame_invert_reg_1, frame_reg_1)                                                                                                                                                                                                                                ;
                     invert_64_frame(frame_invert_reg_2, frame_reg_2)                                                                                                                                                                                                                                ;
