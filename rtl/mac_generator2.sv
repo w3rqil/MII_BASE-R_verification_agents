@@ -84,6 +84,7 @@ module mac_frame_generator #(
                     next_byte_counter        = 16'd0                                                                    ;
                     next_payload_index       = 16'd0                                                                    ;
                     next_padding_counter     = 16'd0                                                                    ;
+                    next_crc                 = 32'hFFFFFFFF                                                             ;
 
                     // Prepare header: Destination + Source + EtherType 
                     header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
@@ -122,7 +123,7 @@ module mac_frame_generator #(
                     next_byte_counter    = byte_counter + 8                                                             ;
 
                     // crc calc
-                    data_xor = {32'b0, crc} ^ next_frame_out; //initial xor // {crc,    32'b0}
+                    data_xor = {crc,32'b0} ^ next_frame_out; //initial xor // {crc,    32'b0} {32'b0, crc}
 
                     for (i = 0; i < 64; i = i + 1) begin
                         if (data_xor[63]) begin
@@ -132,7 +133,7 @@ module mac_frame_generator #(
                         end
                     end
 
-                    next_crc = data_xor[31:0];
+                    next_crc = ~data_xor[31:0];
                     //
 
                     if (byte_counter >= 14) begin   
@@ -162,11 +163,13 @@ module mac_frame_generator #(
 
                     for (i = 0; i < 64; i = i + 1) begin
                         if (data_xor[63]) begin
-                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                            data_xor = (data_xor << 1) ^ POLYNOMIAL;
                         end else begin
-                            next_crc = (data_xor << 1);
+                            data_xor = (data_xor << 1);
                         end
                     end
+
+                    next_crc = ~data_xor;
                     //
                     
                     if (payload_index >= i_payload_length) begin
@@ -190,11 +193,13 @@ module mac_frame_generator #(
 
                     for (i = 0; i < 64; i = i + 1) begin
                         if (data_xor[63]) begin
-                            next_crc = (data_xor << 1) ^ POLYNOMIAL;
+                            data_xor = (data_xor << 1) ^ POLYNOMIAL;
                         end else begin
-                            next_crc = (data_xor << 1);
+                            data_xor = (data_xor << 1);
                         end
                     end
+
+                    next_crc = ~data_xor;
                     //
 
                     if (padding_counter >= (MIN_PAYLOAD_SIZE - i_payload_length)) begin
@@ -207,7 +212,7 @@ module mac_frame_generator #(
                     next_valid = 1'b0                                                                                   ;
                     next_done  = 1'b1                                                                                   ;
                     next_state = IDLE                                                                                   ;
-                    next_frame_out = {~crc, 32'b0}  ; // adds the crc at the end of the frame
+                    next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
                     next_crc = 32'hFFFFFFFF;
                 end
                 default: begin
