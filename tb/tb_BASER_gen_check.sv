@@ -135,7 +135,7 @@ module tb_BASER_gen_check;
         .FRAME_WIDTH          (FRAME_WIDTH          )   ,
         .CONTROL_WIDTH        (CONTROL_WIDTH        )   ,
         .TRANSCODER_BLOCKS    (TRANSCODER_BLOCKS    )   ,
-        .TC_WIDTH     (TC_WIDTH     )   ,
+        .TC_WIDTH             (TC_WIDTH             )   ,
         .TRANSCODER_HDR_WIDTH (TRANSCODER_HDR_WIDTH )   ,
         .PROB                 (PROB                 )
     )
@@ -159,8 +159,10 @@ module tb_BASER_gen_check;
     // Instantiate checker
     BASER_257b_checker#(
         .DATA_WIDTH         (DATA_WIDTH         )   ,
+        .HDR_WIDTH          (HDR_WIDTH          )   ,
+        .FRAME_WIDTH        (FRAME_WIDTH        )   ,
         .TC_DATA_WIDTH      (TC_DATA_WIDTH      )   ,
-        .SH_WIDTH           (SH_WIDTH           )   ,
+        .TC_HDR_WIDTH       (TC_HDR_WIDTH       )   ,
         .TC_WIDTH           (TC_WIDTH           )   ,
         .DATA_CHAR_PATTERN  (DATA_CHAR_PATTERN  )   ,
         .CTRL_CHAR_PATTERN  (CTRL_CHAR_PATTERN  )   ,
