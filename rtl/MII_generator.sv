@@ -109,13 +109,13 @@ module EthernetFrameGenerator
     always_ff @(posedge clk or posedge i_rst) begin
         if (i_rst) begin 
             tx_data     <= 8'd0                                                     ;
-            tx_ctrl    <= 8'd0                                                     ;
+            tx_ctrl    <= 8'd0                                                      ;
             counter     <= 0                                                        ;
             state       <= IDLE                                                     ;
         end
         else begin
             tx_data <= next_tx_data                                                 ;
-            tx_ctrl <= next_tx_ctrl                                               ;
+            tx_ctrl <= next_tx_ctrl                                                 ;
             counter <= next_counter                                                 ;
             state <= next_state                                                     ;
         end

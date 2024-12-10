@@ -32,20 +32,12 @@ module mac_generator
     parameter [7:0] TERMINATE_CODE = 8'hFD
     )
     (
-    input  logic                    clk            ,    //! Clock input
-    input  logic                    i_rst          ,    //! Asynchronous reset
-    input  logic                    i_start        ,    //! Signal to start frame transmission
-    input  logic                    i_fixed_flag   ,    //! if asserted -> the values will be fixed - else it will be the input values.
-    input  logic [7:0]              i_interrupt    ,    //! Interrupt the frame into different scenarios
-
-    // input
-    input  logic [41:0]             i_dst_addr     ,    //
-    input  logic [41:0]             i_src_addr     ,
-    input  logic [15:0]             i_type         ,
-    input  logic [15:0]             i_opcode       ,
-
-    output logic [DATA_WIDTH-1:0]   o_tx_data      ,    //! Transmitted data (64 bits per cycle)
-    output logic [CTRL_WIDTH-1:0]   o_tx_ctrl           //! Transmit control signal (indicates valid data)
+    input  logic                    clk            ,   //! Clock input
+    input  logic                    i_rst          ,   //! Asynchronous reset
+    input  logic                    i_start        ,   //! Signal to start frame transmission
+    input  logic [7:0]              i_interrupt    ,   //! Interrupt the frame into different scenarios
+    output logic [DATA_WIDTH-1:0]   o_tx_data      ,   //! Transmitted data (64 bits per cycle)
+    output logic [CTRL_WIDTH-1:0]   o_tx_ctrl          //! Transmit control signal (indicates valid data)
     );
 
     // Parameters for frame sections
@@ -59,7 +51,7 @@ module mac_generator
     localparam [3:0]
                     IDLE        = 0,
                     START       = 1,
-                    CFG         = 2,
+                    PREAMBLE    = 2,
                     SFD         = 3,
                     DST_ADDR    = 4,
                     SRC_ADDR    = 5,
@@ -87,20 +79,12 @@ module mac_generator
     // Ctrl block
     logic [CTRL_WIDTH-1:0] tx_ctrl_block;
     logic [CTRL_WIDTH-1:0] next_tx_ctrl_block;
-    logic bytes_count, next_bytes_count;
 
     // Output signals
     assign o_tx_data = tx_data_block;
     assign o_tx_ctrl = tx_ctrl_block;
 
     // Initialize frame content
-
-    always @(*) begin
-        
-        case(state)
-        endcase
-    end
-
     always_comb begin
         next_counter = counter;
         next_state = state;
@@ -124,17 +108,20 @@ module mac_generator
                 next_tx_ctrl_block = 8'b00000001; // Only the first byte is data (START)
                 next_state = DST_ADDR;
                 next_counter = 0;
-                next_bytes_count = 0;
             end
-            CFG: begin
+            /*
+            PREAMBLE: begin
+                next_tx_data_block = {{6{PREAMBLE_CODE}}, SFD_CODE, IDLE_CODE};
+                next_tx_ctrl_block = 8'b00000000; // All bytes are data bytes (PREAMBLE)
+                next_state = DST_ADDR;
+                next_counter = 0;
+            end
+            */
+            DST_ADDR: begin
                 
                 next_tx_data_block = {SRC_ADDR_CODE[15:0], DST_ADDR_CODE};
                 next_tx_ctrl_block = 8'b00000000;
                 next_counter = counter + 1;
-
-                for(i=0; i<8; i= i+1) begin
-                    next_tx_data_block = {}
-                end
             
                 next_state = SRC_ADDR;
                 next_counter = 0;
@@ -187,14 +174,12 @@ module mac_generator
             tx_data_block <= {DATA_WIDTH{1'b0}};
             tx_ctrl_block <= {CTRL_WIDTH{1'b0}};
             counter <= 0;
-            bytes_count <= 0;
             state <= IDLE;
         end else begin
             tx_data_block <= next_tx_data_block;
             tx_ctrl_block <= next_tx_ctrl_block;
             counter <= next_counter;
             state <= next_state;
-            bytes_count <= next_bytes_count;
         end
     end
 endmodule

@@ -13,8 +13,8 @@ module mac_mii_top #(
     input wire [7:0] i_payload[PAYLOAD_LENGTH-1:0],
     input wire [7:0] i_interrupt,
 
-    output wire [7:0] o_mii_data,     // MII data output (8-bit)
-    output wire       o_mii_valid     // MII valid signal
+    output wire [63:0] o_mii_data,     // MII data output (8-bit)
+    output wire [7:0] o_mii_valid     // MII valid signal
 );
 
     // Signals to connect mac_frame_generator and MII_gen
@@ -63,7 +63,7 @@ module mac_mii_top #(
     );
 
     // Outputs from MII_gen
-    assign o_mii_data = mii_tx_data[7:0];  // Output 8 bits at a time
-    assign o_mii_valid = mii_control[0];   // Output valid flag
+    assign o_mii_data = mac_frame_out;  // Output 8 bits at a time
+    assign o_mii_valid = mii_control;   // Output valid flag
 
 endmodule
