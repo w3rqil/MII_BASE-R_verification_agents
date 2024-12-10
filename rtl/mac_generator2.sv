@@ -12,8 +12,8 @@ module mac_frame_generator #(
     input       [15:0]          i_payload_length                                                                        , // Payload length in bytes
     input       [7:0]           i_payload[PAYLOAD_LENGTH-1:0]                                                           , // Payload data (preloaded)
     input       [7:0]           i_interrupt                                                                             , // Set of interruptions to acomplish different behavors
-    output      logic           o_valid                                                                                 , // Output valid signal
-    output      logic [63:0]    o_frame_out                                                                             , // 64-bit output data
+    output      reg           o_valid                                                                                 , // Output valid signal
+    output      reg [63:0]    o_frame_out                                                                             , // 64-bit output data
     output      logic           o_done                                                                                    // Indicates frame generation is complete
 );
 
@@ -99,6 +99,7 @@ module mac_frame_generator #(
 
                     if (i_start) begin
                         next_state = SEND_PREAMBLE                                                                      ;
+                        //next_valid = 1'b1;
                     end else begin                                                          
                         next_state = IDLE                                                                               ;
                     end     
@@ -172,7 +173,7 @@ module mac_frame_generator #(
                     next_crc = ~data_xor;
                     //
                     
-                    if (payload_index >= i_payload_length) begin
+                    if (payload_index >= PAYLOAD_LENGTH) begin
                         if (payload_index < MIN_PAYLOAD_SIZE) begin
                             next_state = SEND_PADDING; // Add padding if payload is too short
                         end else begin
@@ -186,8 +187,8 @@ module mac_frame_generator #(
                 SEND_PADDING: begin
                     next_valid             = 1'b1                                                                       ;
                     next_frame_out         = 64'b0                                                                      ; // Send zero padding
-                    next_padding_counter     = padding_counter + 8                                                      ;
-
+                    //next_padding_counter     = padding_counter + 8                                                      ;
+                    next_payload_index = payload_index + 8;
                     // crc calc
                     data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
 
@@ -202,7 +203,7 @@ module mac_frame_generator #(
                     next_crc = ~data_xor;
                     //
 
-                    if (padding_counter >= (MIN_PAYLOAD_SIZE - i_payload_length)) begin
+                    if (payload_index >= (MIN_PAYLOAD_SIZE - PAYLOAD_LENGTH)) begin
                         next_state = DONE                                                                               ;
                     end else begin                                                      
                         next_state = SEND_PADDING                                                                       ;
@@ -213,7 +214,7 @@ module mac_frame_generator #(
                         next_state = DONE;
                         next_valid = 1'b1;
                         next_done = 1'b0;
-                        next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
+                        next_frame_out = {32'b0, crc}  ; // adds the crc at the end of the frame
                         next_crc = 32'hFFFFFFFF;
                         flag = 1;
                     end else begin

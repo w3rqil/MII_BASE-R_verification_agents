@@ -24,8 +24,8 @@ module tb_mac_frame_generator();
     // Instantiate the DUT (Device Under Test)
     mac_frame_generator #(
         .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE),
-        .PAYLOAD_CHAR_PATTERN(),
-        .PAYLOAD_LENGTH()
+        .PAYLOAD_CHAR_PATTERN(8'h55),
+        .PAYLOAD_LENGTH(8)
     ) DUT (
         .clk(clk),
         .i_rst_n(rst_n),
@@ -64,8 +64,8 @@ module tb_mac_frame_generator();
 
         // Test Case 1: Small payload
         @(posedge clk);
-        preload_payload(6, '{8'hDE, 8'hAD, 8'hBE, 8'hEF, 8'h12, 8'h34}); // Preload payload
-        payload_length = 6; // Payload length = 6 bytes
+        preload_payload(8, '{8'hBB, 8'hAA, 8'hDE, 8'hAD, 8'hBE, 8'hEF, 8'h12, 8'h34}); // Preload payload
+        payload_length = 8; // Payload length = 6 bytes
         start = 1; // Trigger frame generation
         repeat (50)@(posedge clk);
         start = 0; // Deassert start
