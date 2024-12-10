@@ -63,7 +63,7 @@ module mac_mii_top #(
     );
 
     // Outputs from MII_gen
-    assign o_mii_data = mac_frame_out;  // Output 8 bits at a time
+    assign o_mii_data = mii_tx_data;  // Output 8 bits at a time
     assign o_mii_valid = mii_control;   // Output valid flag
 
 endmodule

@@ -17,8 +17,8 @@ module MII_gen
     output wire [7:0 ] o_control
 
 );  
-
-    localparam MAC_FRAME_LENGTH = (PAYLOAD_LENGTH + 14);
+                                // PAYLOAD_LENGTH > min ? PAYLOAD_LENGTH + addr(12) + type(2) + preamble & sfd (8) : 
+    localparam MAC_FRAME_LENGTH = (PAYLOAD_LENGTH >= 46)? (PAYLOAD_LENGTH + 12 + 2 + 8) : (PAYLOAD_LENGTH + 12 + 2 + 8);
     localparam [7:0]
                     IDLE_CODE   = 8'h07,
                     START_CODE  = 8'hFB,
@@ -96,7 +96,7 @@ module MII_gen
                             end
                             
                             next_counter = counter;
-                            next_state = DONE;
+                            next_state = i_mac_done ? DONE : PAYLOAD;
 
                         end else begin
                             next_tx_data = {i_mii_tx_d[55:0], aux_reg};

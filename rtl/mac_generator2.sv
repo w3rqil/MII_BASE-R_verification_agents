@@ -54,7 +54,7 @@ module mac_frame_generator #(
     //         state <= next_state                                                                     ;
     //     end
     // end
-
+    integer flag;
     integer i;
 
     reg valid, next_valid, next_done;
@@ -77,7 +77,7 @@ module mac_frame_generator #(
 
         case (state)                                                    
                 IDLE: begin                
-                                                     
+                    flag = 0;               
                     next_valid          = 1'b0                                                                          ;
                     next_frame_out      = 64'b0                                                                         ;
                     next_done              = 1'b0                                                                       ; 
@@ -155,7 +155,7 @@ module mac_frame_generator #(
                     gen_shift_reg       = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                          ;
 
                     //payload_shift_reg   = {payload_shift_reg[55:0], i_payload[payload_index]}                           ;
-                    next_payload_index       = payload_index + 1                                                        ;
+                    next_payload_index       = payload_index + 8                                                        ;
                     next_byte_counter        = byte_counter + 8                                                         ;
 
                     // crc calc
@@ -209,11 +209,21 @@ module mac_frame_generator #(
                     end  
                 end
                 DONE: begin
-                    next_valid = 1'b0                                                                                   ;
-                    next_done  = 1'b1                                                                                   ;
-                    next_state = IDLE                                                                                   ;
-                    next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
-                    next_crc = 32'hFFFFFFFF;
+                    if(!flag) begin
+                        next_state = DONE;
+                        next_valid = 1'b1;
+                        next_done = 1'b0;
+                        next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
+                        next_crc = 32'hFFFFFFFF;
+                        flag = 1;
+                    end else begin
+
+                        next_valid = 1'b0                                                                                   ;
+                        next_done  = 1'b1                                                                                   ;
+                        next_state = IDLE                                                                                   ;
+                        //next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
+                        next_crc = 32'hFFFFFFFF;
+                    end
                 end
                 default: begin
                     next_state = IDLE;
