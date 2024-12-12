@@ -32,7 +32,7 @@ module tb_BASER_gen_check;
     // Idle:    0x00
     // Error:   0x1E
     parameter   CTRL_CHAR_PATTERN       = 7'h00                         ;   // 7 BITS Control character
-    parameter   OSET_CHAR_PATTERN       = 4'hF                          ;   // 4 BITS Ordered Set character
+    parameter   OSET_CHAR_PATTERN       = 4'hB                          ;   // 4 BITS Ordered Set character
 
     /*
     *---------------------INPUTS-------------------------

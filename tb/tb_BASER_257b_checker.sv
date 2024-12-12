@@ -15,7 +15,7 @@ module tb_BASER_257b_checker;
     */
     parameter       DATA_CHAR_PATTERN   = 8'hAA                     ;
     parameter       CTRL_CHAR_PATTERN   = 7'h1E                     ;
-    parameter       OSET_CHAR_PATTERN   = 4'hF                      ;
+    parameter       OSET_CHAR_PATTERN   = 4'hB                      ;
 
     /*
     *---------INPUTS----------

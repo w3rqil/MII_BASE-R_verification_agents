@@ -33,7 +33,7 @@ module BASER_257b_checker
     // Idle:    0x00
     // Error:   0x1E
     parameter       CTRL_CHAR_PATTERN   = 7'h1E                     ,   // 7 BITS Control character
-    parameter       OSET_CHAR_PATTERN   = 4'hF                          // 4 BITS Ordered Set character
+    parameter       OSET_CHAR_PATTERN   = 4'hB                          // 4 BITS Ordered Set character
 )
 (
     /*
@@ -107,7 +107,7 @@ module BASER_257b_checker
     logic        first_ctrl_block_flag  ;
 
     // Invalid 64b format position
-    logic [3:0] inv_format_pos;
+    logic [3:0]  inv_format_pos         ;
 
     always @(*) begin
         // Increase total block counter every clock positive edge
@@ -115,10 +115,10 @@ module BASER_257b_checker
         // Reset flags
         first_ctrl_block_flag   = 1'b0              ;
         inv_block_flag          = 1'b0              ;
-        inv_pattern_flag     = 1'b0              ;
+        inv_pattern_flag        = 1'b0              ;
         inv_sh_flag             = 1'b0              ;
-        inv_format_flag       = 1'b0              ;
-        inv_format_pos          = 3'h7;
+        inv_format_flag         = 1'b0              ;
+        inv_format_pos          = 3'h7              ;
 
         // Detected all data blocks
         if(i_rx_xcoded[0]) begin
@@ -497,8 +497,8 @@ module BASER_257b_checker
 
         // Update counter
         next_inv_block_count        = inv_block_count       + inv_block_flag        ;
-        next_inv_pattern_count   = inv_pattern_count  + inv_pattern_flag   ;
-        next_inv_format_count     = inv_format_count    + inv_format_flag     ;
+        next_inv_pattern_count      = inv_pattern_count     + inv_pattern_flag      ;
+        next_inv_format_count       = inv_format_count      + inv_format_flag       ;
         next_inv_sh_count           = inv_sh_count          + inv_sh_flag           ;
     end
 
@@ -513,8 +513,8 @@ module BASER_257b_checker
             data_count              <= '0;
             ctrl_count              <= '0;
             inv_block_count         <= '0;
-            inv_pattern_count    <= '0;
-            inv_format_count      <= '0;
+            inv_pattern_count       <= '0;
+            inv_format_count        <= '0;
             inv_sh_count            <= '0;
         end
         else begin
@@ -527,8 +527,8 @@ module BASER_257b_checker
             data_count              <= next_data_count          ;
             ctrl_count              <= next_ctrl_count          ;
             inv_block_count         <= next_inv_block_count     ;
-            inv_pattern_count    <= next_inv_pattern_count;
-            inv_format_count      <= next_inv_format_count  ;
+            inv_pattern_count       <= next_inv_pattern_count   ;
+            inv_format_count        <= next_inv_format_count    ;
             inv_sh_count            <= next_inv_sh_count        ;
         end
     end
@@ -541,8 +541,8 @@ module BASER_257b_checker
     assign o_ctrl_count             = ctrl_count            ;
     assign o_data_count             = data_count            ;
     assign o_inv_block_count        = inv_block_count       ;
-    assign o_inv_pattern_count   = inv_pattern_count  ;
-    assign o_inv_format_count     = inv_format_count    ;
+    assign o_inv_pattern_count      = inv_pattern_count     ;
+    assign o_inv_format_count       = inv_format_count      ;
     assign o_inv_sh_count           = inv_sh_count          ;
 
 endmodule

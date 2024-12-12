@@ -319,7 +319,7 @@ task automatic invert_257_frame(
                     frame[DATA_WIDTH * 3 + CONTROL_WIDTH -: TRANSCODER_BLOCKS] = i_frame[TRANSCODER_WIDTH - 2 - TRANSCODER_BLOCKS - DATA_WIDTH * 3 -: TRANSCODER_BLOCKS]                                                                                                                            ;
                     
                     for(int i = 25; i < 32; i = i + 1'b1) begin
-                        frame[CONTROL_WIDTH * (i+1) - : CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                            ;
+                        frame[CONTROL_WIDTH * (i+1) -: CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                            ;
                     end
 
                 end
