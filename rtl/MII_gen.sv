@@ -1,24 +1,36 @@
 module MII_gen
 #(
-    parameter PAYLOAD_MAX_SIZE = 1500                                                                                   , // Maximum payload size in bytes
-    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                        ,
-    parameter PAYLOAD_LENGTH = 8
+    parameter           PAYLOAD_MAX_SIZE = 1500                                                                         , // Maximum payload size in bytes
+
+    /* Packet structure:
+        - Preamble: 7 bytes
+        - SFD: 1 byte
+        - Destination adress: 6 bytes
+        - Source adress: 6 bytes
+        - Length/Type: 2 bytes
+        - Client Data (Payload): 46-1500 bytes
+        - Frame Check Sequence (CRC): 4 bytes 
+    */
+    parameter           PACKET_MAX_BITS = 8*(PAYLOAD_MAX_SIZE + 26)                                                     ,
+    parameter   [7:0]   PAYLOAD_CHAR_PATTERN = 8'h55                                                                    ,
+    parameter           PAYLOAD_LENGTH = 8                                                                              ,
 )
 (
-    input wire clk          ,
-    input wire i_rst_n      ,
-    input wire i_mii_tx_en  ,
-    input wire i_valid      ,
-    input wire i_mac_done   ,
-    input wire i_mii_tx_er  , // 4'b0000
-    input wire [63:0] i_mii_tx_d,
+    input wire  clk,
+    input wire  i_rst_n,
+    input wire  i_mii_tx_en,
+    input wire  i_valid,
+    input wire  i_mac_done,
+    input wire  i_mii_tx_er, // 4'b0000
+    input wire  [63:0] i_mii_tx_d,
+    input wire  [PACKET_MAX_BITS-1:0] i_register,
 
     output wire [63:0] o_mii_tx_d,
     output wire [7:0 ] o_control
+);
 
-);  
-                                // PAYLOAD_LENGTH > min ? PAYLOAD_LENGTH + addr(12) + type(2) + preamble & sfd (8) : 
-    localparam MAC_FRAME_LENGTH = (PAYLOAD_LENGTH >= 46)? (PAYLOAD_LENGTH + 12 + 2 + 8) : (PAYLOAD_LENGTH + 12 + 2 + 8);
+    localparam PACKET_LENGTH = PAYLOAD_LENGTH + 26;
+
     localparam [7:0]
                     IDLE_CODE   = 8'h07,
                     START_CODE  = 8'hFB,
@@ -36,39 +48,39 @@ module MII_gen
     logic [7:0] next_tx_control;
 
     logic valid, next_valid;
+
+    logic [PACKET_MAX_BITS-1:0] register;
     reg [7:0] aux_reg; // for the remmaining 1 byte
+    reg [PACKET_MAX_BITS-1:0] gen_shift_reg; // 16 -> start & eof
 
     integer i;
     integer aux_int;
-    reg [(MAC_FRAME_LENGTH)*8 + 112 + 16 +24 -1:0] gen_shift_reg; // 16 -> start & eof
     integer int_counter;
 
     integer aux_int_sr, byte_counter_int, AUX_TEST;
 
-    localparam TAM = (MAC_FRAME_LENGTH)*8 + 112 + 24 + 16;
-
     always @(*) begin : act_shift_reg
         gen_shift_reg[7:0] = START_CODE;
-        gen_shift_reg[(MAC_FRAME_LENGTH)*8 + 112 + 24 + 16-1 -:8] = EOF_CODE; // last = EOF
-        if(i_valid ) begin  //actualizo solo si valid 
+        gen_shift_reg[8*PAYLOAD_LENGTH - 1 -: 8] = EOF_CODE; // last = EOF
+        if(i_valid) begin  //actualizo solo si valid 
 
             if((int_counter = (PAYLOAD_LENGTH)*8 + 112)) begin // y si no actulizó todo el payload sin contar padding
 
             gen_shift_reg [(aux_int*64 + 8) +: 64] <= i_mii_tx_d;
-            gen_shift_reg[(MAC_FRAME_LENGTH)*8 + 112 + 24 + 16-1 -:8] = EOF_CODE; // last = EOF
+            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
 
             aux_int = aux_int + 1;
             end
             int_counter = int_counter + 8;
 
-            gen_shift_reg[(MAC_FRAME_LENGTH)*8 + 112 + 24 + 16-1 -:8] = EOF_CODE; // last = EOF
+            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
 
         end else begin
-            // for(i=0; i < (MAC_FRAME_LENGTH)*8 + 112 + 16; i = i +1) begin //inicializo en 0
+            // for(i=0; i < PACKET_MAX_BITS i +1) begin //inicializo en 0
             //     gen_shift_reg[i*8 +: 8] = 8'h00;
             // end
 
-            gen_shift_reg[(MAC_FRAME_LENGTH)*8 + 112 + 24 + 16-1 -:8] = EOF_CODE; // last = EOF
+            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
 
             aux_int = 0;
             int_counter = 0;
@@ -78,16 +90,18 @@ module MII_gen
 
 
     always @(*) begin : state_machine
-        gen_shift_reg[(MAC_FRAME_LENGTH)*8 + 112 + 24 + 16-1 -:8] = EOF_CODE; // last = EOF
 
+        register = {EOF_CODE, i_register[8*PACKET_LENGTH - 8 - 1 : 8], START_CODE};
+        
         next_counter = counter;
         next_state = state;
         next_valid = valid;
+
         case(state) 
             IDLE: begin
                 //aux_int = 0;
-                aux_int_sr = 0;
-                byte_counter_int = 0;
+                // aux_int_sr = 0;
+                // byte_counter_int = 0;
                 next_tx_data = {8{IDLE_CODE}};
                 next_tx_control = 8'hFF;
 
@@ -107,105 +121,34 @@ module MII_gen
                 end
             end
             PAYLOAD: begin
-                //if(i_valid)begin
-                    
-                    // if(counter == 0) begin
-                    //     next_tx_data = {i_mii_tx_d[55:0], START_CODE};
-                    //     aux_reg      = i_mii_tx_d [63:56];
-                    //     next_tx_control = 8'h01;
 
-                    //     next_counter = counter + 7;
-                    //     next_state = PAYLOAD;
-    
-                    // end else begin
-
-                    //     if(counter >= (MAC_FRAME_LENGTH - 8)) begin // counter equals the mac message size in bytes (before the last message)
-                    //         next_tx_data[7:0] = aux_reg;
-                    //         next_tx_control[0] = 1'b0;
-
-                    //         for(int i = 1; i < 8; i++) begin
-
-                    //             if(i < MAC_FRAME_LENGTH - counter) begin //
-                    //                 next_tx_data[i*8 +: 8] = i_mii_tx_d[(i-1)*8 +: 8];
-                    //                 next_tx_control[i] = 1'b0;
-
-                    //             end else if(i == MAC_FRAME_LENGTH - counter) begin //
-                    //                 next_tx_data[i*8 +: 8] = EOF_CODE;
-                    //                 next_tx_control[i] = 1'b1;
-
-                    //             end else begin //
-                    //                 next_tx_data[i*8 +: 8] = IDLE_CODE;
-                    //                 next_tx_control[i] = 1'b1;
-                    //             end
-                    //         end
-                            
-                    //         next_counter = counter;
-                    //         next_state = i_mac_done ? DONE : PAYLOAD;
-
-                    //     end else begin
-                    //         next_tx_data = {i_mii_tx_d[55:0], aux_reg};
-                    //         aux_reg      = i_mii_tx_d [63:56];
-                    //         next_tx_control = 8'h00;
-
-                    //         next_counter = counter + 8;
-                    //         next_state = PAYLOAD;
-                    //     end
-
-                        
-
-                    // end
-                // if(byte_counter_int*8 >= TAM) begin
-                //     if((byte_counter_int - TAM) == 0) begin
-                //         next_valid = 0;
-                //     end else if( (TAM % 64) != 0) begin
-                //         next_tx_data = {{byte_counter_int*8 - TAM{IDLE_CODE}}, gen_shift_reg[ TAM -: TAM%64]};
-                //     end
-                // end
                 if(valid) begin
-                    next_tx_data = gen_shift_reg[aux_int_sr*64 +: 64];
+                    next_tx_data = register[64*counter +: 64];
 
                     for ( i=0; i < 64; i= i +1) begin
-                        if(next_tx_data[i*8 +:8] == START_CODE || next_tx_data[i*8 +:8] == EOF_CODE ) begin
+                        if(next_tx_data[i*8 +:8] == START_CODE || next_tx_data[i*8 +:8] == EOF_CODE) begin
                             next_tx_control[i] = 1'b1;
-                        end else
+                        end else begin
                             next_tx_control[i] = 1'b0;
-                    end
-                    byte_counter_int = byte_counter_int + 8;
-                    aux_int_sr = aux_int_sr + 1;
-                end
-
-                //next_tx_data = gen_shift_
-
-                //end else begin
-                    if(i_mac_done) begin 
-                        if(byte_counter_int*8 >= TAM) begin
-                            if((byte_counter_int - TAM) == 0) begin
-                                next_valid = 0;
-                            end else if( (TAM % 64) != 0) begin
-                                AUX_TEST= TAM%64;
-                                next_tx_data = {{(64 - TAM%64){IDLE_CODE}}, gen_shift_reg[ TAM-1 -: TAM%64]};
-                            end
                         end
-                    //next_tx_data = {8{IDLE_CODE}};
+                    end
+                    next_counter = counter + 8;
+                end
+                
+                if(i_mac_done) begin 
+                    if(counter*8 >= PACKET_LENGTH) begin
+                        if((counter - PACKET_LENGTH) == 0) begin
+                            next_valid = 0;
+                        end else if( (PACKET_LENGTH % 64) != 0) begin
+                            next_tx_data = {{(64 - PACKET_LENGTH%64){IDLE_CODE}}, register[PACKET_LENGTH - 1 -: PACKET_LENGTH%64]};
+                        end
+                    end
+                    
                     next_tx_control = 8'hFF;
                     next_valid = 1'b0;
                     next_counter = 8;
                     next_state = IDLE;
-                    end
-                //end
-            end
-            DONE: begin
-                if(MAC_FRAME_LENGTH - counter == 8) begin
-                    next_tx_data = {{7{IDLE_CODE}}, EOF_CODE};
-                    next_counter = 7;
-
-                end else begin
-                    next_tx_data = {8{IDLE_CODE}};
-                    next_counter = 8;
                 end
-                next_tx_control = 8'hFF;
-
-                next_state = IDLE;
             end
         endcase
         
