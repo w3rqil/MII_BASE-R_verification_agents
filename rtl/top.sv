@@ -1,104 +1,129 @@
-`timescale 1ns/100ps
-
 module top
 (
-    input  logic clk,             // System clock
-    input  logic rst,             // Asynchronous reset
-    input  logic start,           // Signal to start frame generation
-    input  logic fixed_flag,      // Fixed or input values for MAC Generator
-    input  logic [7:0] interrupt, // Interrupt scenarios for MAC Generator
-
-    // Input data for MAC Generator
-    input  logic [41:0] dst_addr,
-    input  logic [41:0] src_addr,
-    input  logic [15:0] frame_type,
-    input  logic [15:0] opcode,
-
-    // Outputs from MII Checker
-    output logic payload_error,
-    output logic intergap_error,
-    output logic other_error
+    input wire clk,
+    input wire i_start,
+    input wire i_rst_n
 );
 
-    localparam DATA_WIDTH = 64;
-    localparam CTRL_WIDTH = DATA_WIDTH / 8;
 
-    // MAC Generator Parameters
-    localparam IDLE_CYCLES = 12;
-    localparam PREAMBLE_CYCLES = 6;
-    localparam DST_ADDR_CYCLES = 6;
-    localparam SRC_ADDR_CYCLES = 6;
-    localparam LEN_TYP_CYCLES = 2;
-    localparam DATA_CYCLES = 10;
-    localparam FCS_CYCLES = 4;
+locaparam DATA_WIDTH = 8;
 
-    localparam [7:0] IDLE_CODE = 8'h07;
-    localparam [7:0] START_CODE = 8'hFB;
-    localparam [7:0] PREAMBLE_CODE = 8'h55;
-    localparam [7:0] SFD_CODE = 8'hD5;
 
-    localparam [47:0] DST_ADDR_CODE = 48'h0180C2000001;
-    localparam [47:0] SRC_ADDR_CODE = 48'h5A5152535455;
-    localparam [15:0] LEN_TYP_CODE = 16'h8808;
-    localparam [7:0] FCS_CODE = 8'hC0;
-    localparam [7:0] TERMINATE_CODE = 8'hFD;
+localparam CTRL_WIDTH = 8;
+logic [DATA_WIDTH-1:0] o_tx_data;
+logic [CTRL_WIDTH-1:0] o_tx_ctrl;
+logic other_error, payload_error, intergap_error;
 
-    // MII Checker Parameters
-    localparam [7:0] TERM_CODE = 8'hFD;
+// Instantiate the generator module
 
-    // Internal signals to connect mac_generator and mii_checker
-    logic [DATA_WIDTH-1:0] tx_data;  // Frame data from MAC Generator
-    logic [CTRL_WIDTH-1:0] tx_ctrl; // Control signal from MAC Generator
 
-    // Instantiate mac_generator
-    mac_generator #(
-        .DATA_WIDTH(DATA_WIDTH),
-        .CTRL_WIDTH(CTRL_WIDTH),
-        .IDLE_CYCLES(IDLE_CYCLES),
-        .PREAMBLE_CYCLES(PREAMBLE_CYCLES),
-        .DST_ADDR_CYCLES(DST_ADDR_CYCLES),
-        .SRC_ADDR_CYCLES(SRC_ADDR_CYCLES),
-        .LEN_TYP_CYCLES(LEN_TYP_CYCLES),
-        .DATA_CYCLES(DATA_CYCLES),
-        .FCS_CYCLES(FCS_CYCLES),
-        .IDLE_CODE(IDLE_CODE),
-        .START_CODE(START_CODE),
-        .PREAMBLE_CODE(PREAMBLE_CODE),
-        .SFD_CODE(SFD_CODE),
-        .DST_ADDR_CODE(DST_ADDR_CODE),
-        .SRC_ADDR_CODE(SRC_ADDR_CODE),
-        .LEN_TYP_CODE(LEN_TYP_CODE),
-        .FCS_CODE(FCS_CODE),
-        .TERMINATE_CODE(TERMINATE_CODE)
-    ) mac_gen_inst (
-        .clk(clk),
-        .i_rst(rst),
-        .i_start(start),
-//        .i_fixed_flag(fixed_flag),
-        .i_interrupt(interrupt),
-        // .i_dst_addr(dst_addr),
-        // .i_src_addr(src_addr),
-        // .i_type(frame_type),
-        // .i_opcode(opcode),
-        .o_tx_data(tx_data),
-        .o_tx_ctrl(tx_ctrl)
-    );
+// Instantiate the checker module
+mii_checker #(
+    .DATA_WIDTH(DATA_WIDTH),
+    .CTRL_WIDTH(CTRL_WIDTH)
+) uut (
+    .clk(clk),
+    .i_rst(!i_rst_n),
+    .i_tx_data(o_mii_data),
+    .i_tx_ctrl(o_tx_ctrl),
+    .payload_error(payload_error),
+    .intergap_error(intergap_error),
+    .other_error(other_error),
+    .o_captured_data(buffferMII2MAC)//buffer
+);
 
-    // Instantiate mii_checker
-    mii_checker #(
-        .DATA_WIDTH(DATA_WIDTH),
-        .CTRL_WIDTH(CTRL_WIDTH),
-        .IDLE_CODE(IDLE_CODE),
-        .START_CODE(START_CODE),
-        .TERM_CODE(TERM_CODE)
-    ) mii_chk_inst (
-        .clk(clk),
-        .i_rst(rst),
-        .i_tx_data(tx_data),
-        .i_tx_ctrl(tx_ctrl),
-        .payload_error(payload_error),
-        .intergap_error(intergap_error),
-        .other_error(other_error)
-    );
+///----------------------------------
+
+
+
+mac_checker #
+(
+    .DATA_WIDTH      (DATA_WIDTH),
+    .CTRL_WIDTH      (CTRL_WIDTH),
+    .FCS_WIDTH       (FCS_WIDTH ), 
+
+    .IDLE_CODE       (8'h07),
+    .START_CODE      (8'hfb),
+    .TERM_CODE       (8'hfd), 
+    .PREAMBLE_CODE   (8'h55),
+    .SFD_CODE        (8'hd5),
+    .DST_ADDR_CODE   (),
+    .SRC_ADDR_CODE   ()
+)checkunit
+(
+    .clk(clk),
+    .i_rst(~i_rst_n),
+    .i_rx_data(buffferMII2MAC),
+    //.i_rx_ctrl(),
+    .i_rx_fcs(),
+    .preamble_error(),
+    .fcs_error(),   
+    .header_error(),
+    .payload_error(),
+    .o_data_valid()
+);
+
+//-----------------------------------------------
+
+// fcs_crc  fcs_unit(
+//     .clk(clk),                  // Señal de reloj
+//     .rst_n(i_rst_n),                // Señal de reset activo en bajo
+//     .data_valid(),           // Señal para habilitar la operación de cálculo de CRC
+//     .data_in(),      // Entrada de datos de 32 bits
+//     .crc_out      // Salida del CRC-32
+// );
+
+// ----------------------------------------------
+
+
+
+
+
+    // Parameters
+localparam PAYLOAD_LENGTH = 1000;
+localparam CLK_PERIOD = 10;  // 100 MHz clock
+localparam PAYLOAD_MAX_SIZE = 64;
+
+// Signals
+
+
+reg [47:0] i_dest_address;
+reg [47:0] i_src_address;
+reg [15:0] i_eth_type;
+reg [15:0] i_payload_length;
+reg [7:0] i_payload[PAYLOAD_LENGTH-1:0];
+reg [7:0] i_interrupt;
+
+wire [63:0] o_mii_data;
+wire [7:0] o_mii_valid;
+
+// Clock generation
+
+        // Initialize inputs
+
+
+i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
+i_src_address = 48'h123456789ABC;   // Example source address
+i_eth_type = 16'h0800;              // IP protocol
+i_payload_length = PAYLOAD_LENGTH;
+i_interrupt = 8'd0;                // No interrupt
+// Instantiate DUT
+mac_mii_top #(
+    .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE),
+    .PAYLOAD_LENGTH(PAYLOAD_LENGTH)
+) dut (
+    .clk(clk),
+    .i_rst_n(i_rst_n),
+    .i_start(i_start),
+    .i_dest_address(i_dest_address),
+    .i_src_address(i_src_address),
+    .i_eth_type(i_eth_type),
+    .i_payload_length(i_payload_length),
+    .i_payload(i_payload),
+    .i_interrupt(i_interrupt),
+    .o_mii_data(o_mii_data),
+    .o_mii_valid(o_mii_valid)
+);
+
 
 endmodule

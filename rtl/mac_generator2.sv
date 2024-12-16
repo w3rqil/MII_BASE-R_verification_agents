@@ -1,7 +1,7 @@
 module mac_frame_generator #(
     parameter PAYLOAD_MAX_SIZE = 1500                                                                                   , // Maximum payload size in bytes
-    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                        ,
-    parameter PAYLOAD_LENGTH = 8                    
+    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                         ,
+    parameter PAYLOAD_LENGTH = 8                    //len type - payload length in bytes
 )(                  
     input               logic   clk                                                                                     , // Clock signal
     input               logic   i_rst_n                                                                                 , // Active-low reset
@@ -14,13 +14,14 @@ module mac_frame_generator #(
     input       [7:0]           i_interrupt                                                                             , // Set of interruptions to acomplish different behavors
     output      reg           o_valid                                                                                 , // Output valid signal
     output      reg [63:0]    o_frame_out                                                                             , // 64-bit output data
+    output      wire [(PAYLOAD_MAX_SIZE)*8 + 112+ 32 + 64 -1:0]  o_register,
     output      logic           o_done                                                                                    // Indicates frame generation is complete
 );
 
     localparam [7:0]
                     FIXED_PAYLOAD = 8'd1;
 
-
+    localparam PAYLOAD_SIZE = (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH;
     // State machine states
     localparam [2:0]
         IDLE            = 3'd0                                                                                          ,
@@ -33,14 +34,14 @@ module mac_frame_generator #(
     localparam [31:0] POLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc
 
     reg [2:0] state, next_state                                                                                         ;
-    reg [(PAYLOAD_LENGTH)*8 - 1:0] payload_reg;
+    reg [PAYLOAD_SIZE*8 - 1:0] payload_reg;
     // Internal registers                   
     reg [15:0] byte_counter                                                                                             ;   // Tracks bytes sent
     logic [111:0] header_shift_reg                                                                                      ;   // Shift register for sending preamble + header (192 bits)
     logic [63:0] payload_shift_reg                                                                                      ;   // Shift register for 64-bit payload output
     reg [15:0] payload_index                                                                                            ;   // Index for reading payload bytes
     reg [15:0] padding_counter                                                                                          ;   // Counter for adding padding if payload < 46 bytes
-    logic [(PAYLOAD_LENGTH)*8 + 112-1:0] gen_shift_reg;                 
+    logic [(PAYLOAD_LENGTH)*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS
     // Constants for Ethernet frame                                                         
     localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                               ; // Preamble (7 bytes) + SFD (1 byte)
     localparam MIN_PAYLOAD_SIZE = 46                                                                                    ; // Minimum Ethernet payload size
@@ -54,8 +55,11 @@ module mac_frame_generator #(
     //         state <= next_state                                                                     ;
     //     end
     // end
-    integer flag;
-    integer i;
+    integer min_size_flag;
+    integer size;
+    integer i,j;
+
+    //min_size_flag = (i_eth_type < 46) ? 1 : 0;
 
     reg valid, next_valid, next_done;
     reg [63:0] frame_out, next_frame_out;
@@ -63,190 +67,86 @@ module mac_frame_generator #(
 
     reg [31:0] crc, next_crc;
     reg [63:0] data_xor;
-    
+
+    always_comb begin: size_block
+
+        if(i_eth_type < 46) size = 46;
+        else                size = i_eth_type;
+    end
+
     always_comb begin
-
-        next_state              = state                                                                                 ;
-        next_valid              = 1'b0                                                                                  ;
-        next_frame_out          = 64'b0                                                                                 ;
-        next_done               = 1'b0                                                                                  ;
-        next_byte_counter       = byte_counter                                                                          ;
-        next_payload_index      = payload_index                                                                         ;    
-        next_padding_counter    = padding_counter                                                                       ;
-       
-
-        case (state)                                                    
-                IDLE: begin                
-                    flag = 0;               
-                    next_valid          = 1'b0                                                                          ;
-                    next_frame_out      = 64'b0                                                                         ;
-                    next_done              = 1'b0                                                                       ; 
-                    next_byte_counter        = 16'd0                                                                    ;
-                    next_payload_index       = 16'd0                                                                    ;
-                    next_padding_counter     = 16'd0                                                                    ;
-                    next_crc                 = 32'hFFFFFFFF                                                             ;
-
-                    // Prepare header: Destination + Source + EtherType 
-                    header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
-                    //genetal_shift_reg <= {header_shift_reg, }
-                    for(i=0; i<PAYLOAD_LENGTH; i= i+1) begin
-                        payload_reg[(i*8) +:8]  = i_payload[i];
-                        if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
-                            payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN;
-                        end
+        if(i_start) begin
+            next_done = 1'b0; //lower done flag
+            // Prepare header: Destination + Source + EtherType 
+            header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
+            //general_shift_reg <= {header_shift_reg, }
+    
+            //prepare payload
+            for(i=0; i<PAYLOAD_LENGTH*8; i= i+1) begin
+                    payload_reg[(i*8) +:8]  = (i<=i_eth_type) ? i_payload[i] : 8'h00;
+                    if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
+                        payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN;
                     end
-                    gen_shift_reg = {header_shift_reg, payload_reg};
-
-                    if (i_start) begin
-                        next_state = SEND_PREAMBLE                                                                      ;
-                        //next_valid = 1'b1;
-                    end else begin                                                          
-                        next_state = IDLE                                                                               ;
-                    end     
-                end     
-                SEND_PREAMBLE: begin        
-                    next_valid     = 1'b1                                                                               ;
-                    next_frame_out = PREAMBLE_SFD                                                                       ; // Send Preamble + SFD
-                    next_state = SEND_HEADER                                                                            ;
-                end     
-                SEND_HEADER: begin      
-                    next_valid = 1'b1                                                                                   ;
-                    // if(next_byte_counter > 8 ) begin
-                    //     next_frame_out <= gen_shift_reg[(PAYLOAD_LENGTH-1)*8 + 48]                     ;
-                    //     next_byte_counter <= next_byte_counter + 8                                            ;
-                    // end
-
-                    //next_frame_out <= {header_shift_reg[111:48]}                                       ; // Send top 64 bits of the header
-                    //header_shift_reg <= {header_shift_reg[47:0], 64'b0}                             ; // Shift left
-
-                    next_frame_out     = gen_shift_reg [(PAYLOAD_LENGTH)*8 + 112 -1 : (PAYLOAD_LENGTH)*8 + 48]          ;
-                    gen_shift_reg   = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                              ;
-                    next_byte_counter    = byte_counter + 8                                                             ;
-
-                    // crc calc
-                    data_xor = {crc,32'b0} ^ next_frame_out; //initial xor // {crc,    32'b0} {32'b0, crc}
-
-                    for (i = 0; i < 64; i = i + 1) begin
-                        if (data_xor[63]) begin
-                            data_xor = (data_xor << 1) ^ POLYNOMIAL;
-                        end else begin
-                            data_xor = (data_xor << 1);
-                        end
-                    end
-
-                    next_crc = ~data_xor[31:0];
-                    //
-
-                    if (byte_counter >= 14) begin   
-                        next_state = SEND_PAYLOAD                                                                       ;
-                    end else begin                                                      
-                        next_state = SEND_HEADER                                                                        ;
-                    end 
-
-
-                end 
-                SEND_PAYLOAD: begin 
-                    next_valid <= 1'b1                                                                                  ;
-                    //if(i_interrupt == FIXED_PAYLOAD) begin
-                    //    if(i_payload_length < 46)   next_frame_out
-                    //end
-
-                    //next_frame_out <= payload_shift_reg                                                ;      // Output 64 bits
-                    next_frame_out         = gen_shift_reg [(PAYLOAD_LENGTH)*8 + 112 - 1 : (PAYLOAD_LENGTH)*8 + 48]      ;
-                    gen_shift_reg       = {gen_shift_reg [(PAYLOAD_LENGTH)*8 + 47:0], 64'b0}                          ;
-
-                    //payload_shift_reg   = {payload_shift_reg[55:0], i_payload[payload_index]}                           ;
-                    next_payload_index       = payload_index + 8                                                        ;
-                    next_byte_counter        = byte_counter + 8                                                         ;
-
-                    // crc calc
-                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
-
-                    for (i = 0; i < 64; i = i + 1) begin
-                        if (data_xor[63]) begin
-                            data_xor = (data_xor << 1) ^ POLYNOMIAL;
-                        end else begin
-                            data_xor = (data_xor << 1);
-                        end
-                    end
-
-                    next_crc = ~data_xor;
-                    //
+            end
+            // if(i_eth_type < 46 ) begin // padding if needed
+            //     for(i= i_eth_type; i <46; i= i+1) begin
+            //         payload_reg[(i*8) +:8]  = 8'h00;
+            //         if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
+            //             payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN;
+            //         end
+            //     end
+            // end
+    
+    
+    
+            gen_shift_reg = {payload_reg, header_shift_reg}; 
+            
+            //next_crc = 32'hFFFFFFFF;
+            //! CRC calculation
+            for(i=0; i<(PAYLOAD_LENGTH*8 + 112 ); i= i+64) begin
+                //if((i<= i_eth_type*8)) begin 
                     
-                    if (payload_index >= PAYLOAD_LENGTH) begin
-                        if (payload_index < MIN_PAYLOAD_SIZE) begin
-                            next_state = SEND_PADDING; // Add padding if payload is too short
-                        end else begin
-                            next_state = DONE                                                                           ;
-                        end                                                     
-                    end else begin                                                      
-                        next_state = SEND_PAYLOAD                                                                       ;
+                    next_frame_out = gen_shift_reg [(i) + 63 -: 64];
+        
+                        // crc calc
+                    if(i==0)begin
+                        data_xor = {32'hFFFFFFFF ,32'b0} ^ next_frame_out; //initial xor // {crc,    32'b0} {32'b0, crc}
+                        
+                    end else begin 
+                        data_xor = {{ next_crc} ,32'b0} ^ next_frame_out; //initial xor // {crc,    32'b0} {32'b0, crc}
                     end
-
-                end
-                SEND_PADDING: begin
-                    next_valid             = 1'b1                                                                       ;
-                    next_frame_out         = 64'b0                                                                      ; // Send zero padding
-                    //next_padding_counter     = padding_counter + 8                                                      ;
-                    next_payload_index = payload_index + 8;
-                    // crc calc
-                    data_xor = {crc, 32'b0} ^ next_frame_out; //initial xor
-
-                    for (i = 0; i < 64; i = i + 1) begin
+                    for (j = 0; j < 64; j = j + 1) begin
                         if (data_xor[63]) begin
                             data_xor = (data_xor << 1) ^ POLYNOMIAL;
                         end else begin
                             data_xor = (data_xor << 1);
                         end
                     end
+                    $display("DATA XOR: %h", data_xor);
+                    $display("NEXT_FRAME_OUT: %h", next_frame_out);
+                    next_crc = ~data_xor[31:0];
+                    $display("CRC RT: %h", next_crc);
 
-                    next_crc = ~data_xor;
-                    //
+                //end
+    
+            end
 
-                    if (payload_index >= (MIN_PAYLOAD_SIZE - PAYLOAD_LENGTH)) begin
-                        next_state = DONE                                                                               ;
-                    end else begin                                                      
-                        next_state = SEND_PADDING                                                                       ;
-                    end  
-                end
-                DONE: begin
-                    if(!flag) begin
-                        next_state = DONE;
-                        next_valid = 1'b1;
-                        next_done = 1'b0;
-                        next_frame_out = {32'b0, crc}  ; // adds the crc at the end of the frame
-                        next_crc = 32'hFFFFFFFF;
-                        flag = 1;
-                    end else begin
+        end else begin
+            next_done = 1'b1;
+        end
+        
 
-                        next_valid = 1'b0                                                                                   ;
-                        next_done  = 1'b1                                                                                   ;
-                        next_state = IDLE                                                                                   ;
-                        //next_frame_out = {crc, 32'b0}  ; // adds the crc at the end of the frame
-                        next_crc = 32'hFFFFFFFF;
-                    end
-                end
-                default: begin
-                    next_state = IDLE;
-                    next_valid              = 1'b0                                                                      ;
-                    next_frame_out          = 64'b0                                                                     ;
-                    next_done               = 1'b0                                                                      ; 
-                    next_byte_counter       = 16'd0                                                                     ;
-                    next_payload_index      = 16'd0                                                                     ;
-                    next_padding_counter    = 16'd0                                                                     ;
-                end
-            endcase
         
     end
 
-    
-    
+    assign o_register = {next_crc, gen_shift_reg, PREAMBLE_SFD};
+ 
     // Sequential logic: Frame generation
     always_ff @(posedge clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
-            state               <= IDLE                                                                                  ;
+            //state               <= IDLE                                                                                  ;
             o_valid             <= 1'b0                                                                                  ;
-            crc                 <= 32'hFFFFFFFF                                                                          ;
+            crc                 <= 32'hFFFF                                                                          ;
             o_frame_out         <= 64'b0                                                                                 ;
             o_done              <= 1'b0                                                                                  ;
             byte_counter        <= 16'd0                                                                                 ;
@@ -254,15 +154,23 @@ module mac_frame_generator #(
             padding_counter     <= 16'd0                                                                                 ;
             header_shift_reg    <= 112'b0                                                                                ;
             payload_shift_reg   <= 64'b0                                                                                 ;
+            //o_register <= 0;
         end else begin                                                  
-            state           <= next_state                                                                               ;
-            o_valid         <= next_valid                                                                               ;
-            o_frame_out     <= next_frame_out                                                                           ;
+
+            //state           <= next_state                                                                               ;
+            //o_valid         <= next_valid                                                                               ;
+            o_frame_out     <= 64'hFFFFFFFFFFFFFFFF                                                                           ;
             o_done          <= next_done                                                                                ; 
-            byte_counter    <= next_byte_counter                                                                        ;
+            //byte_counter    <= next_byte_counter                                                                        ;
+
             crc             <= next_crc                                                                                 ;
             payload_index   <= next_payload_index                                                                       ;
-            padding_counter <= next_padding_counter                                                                     ;
+            padding_counter <= next_padding_counter  ;    
+            
+            //o_register <= {next_crc, gen_shift_reg, PREAMBLE_SFD};
+
+
+            
 
             
         end
