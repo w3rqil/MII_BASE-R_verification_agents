@@ -21,6 +21,8 @@ module mac_mii_top #(
     wire        mac_valid;
     wire [63:0] mac_frame_out;
     wire        mac_done;
+    
+    wire [(PAYLOAD_MAX_SIZE)*8 + 112+ 32 + 64 -1:0] register;
 
     wire [63:0] mii_tx_data;
     wire [7:0]  mii_control;
@@ -42,6 +44,7 @@ module mac_mii_top #(
         .i_interrupt(i_interrupt),
         .o_valid(mac_valid),
         .o_frame_out(mac_frame_out),
+        .o_register(register),
         .o_done(mac_done)
     );
 
@@ -58,6 +61,7 @@ module mac_mii_top #(
         .i_mac_done(mac_done),
         .i_mii_tx_er(1'b0),            // No transmission error in this simulation
         .i_mii_tx_d(mac_frame_out),    // Frame data from MAC
+        .i_register(register),
         .o_mii_tx_d(mii_tx_data),      // Unused in this version, processed internally
         .o_control(mii_control)        // Control signal from MII_gen
     );

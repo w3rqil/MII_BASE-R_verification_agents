@@ -43,7 +43,8 @@ module mac_frame_generator #(
     reg [15:0] padding_counter                                                                                          ;   // Counter for adding padding if payload < 46 bytes
     logic [(PAYLOAD_LENGTH)*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS
     // Constants for Ethernet frame                                                         
-    localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                               ; // Preamble (7 bytes) + SFD (1 byte)
+    // localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                               ; // Preamble (7 bytes) + SFD (1 byte)
+    localparam [63:0] PREAMBLE_SFD = 64'hD555555555555555                                                               ; // Preamble (7 bytes) + SFD (1 byte)
     localparam MIN_PAYLOAD_SIZE = 46                                                                                    ; // Minimum Ethernet payload size
     localparam FRAME_SIZE = 64                                                                                          ; // Minimum Ethernet frame size (in bytes)
 
@@ -78,7 +79,8 @@ module mac_frame_generator #(
         if(i_start) begin
             next_done = 1'b0; //lower done flag
             // Prepare header: Destination + Source + EtherType 
-            header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
+            // header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
+            header_shift_reg = {i_eth_type, i_src_address, i_dest_address}                                      ;
             //general_shift_reg <= {header_shift_reg, }
     
             //prepare payload

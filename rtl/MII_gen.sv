@@ -13,7 +13,7 @@ module MII_gen
     */
     parameter           PACKET_MAX_BITS = 8*(PAYLOAD_MAX_SIZE + 26)                                                     ,
     parameter   [7:0]   PAYLOAD_CHAR_PATTERN = 8'h55                                                                    ,
-    parameter           PAYLOAD_LENGTH = 8                                                                              ,
+    parameter           PAYLOAD_LENGTH = 8
 )
 (
     input wire  clk,
@@ -59,39 +59,18 @@ module MII_gen
 
     integer aux_int_sr, byte_counter_int, AUX_TEST;
 
-    always @(*) begin : act_shift_reg
-        gen_shift_reg[7:0] = START_CODE;
-        gen_shift_reg[8*PAYLOAD_LENGTH - 1 -: 8] = EOF_CODE; // last = EOF
-        if(i_valid) begin  //actualizo solo si valid 
-
-            if((int_counter = (PAYLOAD_LENGTH)*8 + 112)) begin // y si no actulizó todo el payload sin contar padding
-
-            gen_shift_reg [(aux_int*64 + 8) +: 64] <= i_mii_tx_d;
-            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
-
-            aux_int = aux_int + 1;
-            end
-            int_counter = int_counter + 8;
-
-            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
-
-        end else begin
-            // for(i=0; i < PACKET_MAX_BITS i +1) begin //inicializo en 0
-            //     gen_shift_reg[i*8 +: 8] = 8'h00;
-            // end
-
-            gen_shift_reg[PACKET_MAX_BITS - 1 -: 8] = EOF_CODE; // last = EOF
-
-            aux_int = 0;
-            int_counter = 0;
-        end
-    end
-
-
-
     always @(*) begin : state_machine
-
-        register = {EOF_CODE, i_register[8*PACKET_LENGTH - 8 - 1 : 8], START_CODE};
+        if(PAYLOAD_LENGTH < 46) begin
+            register = {EOF_CODE,
+                        i_register[8*PACKET_LENGTH - 8 - 1 -: 32],
+                        {8*(46 - PAYLOAD_LENGTH){1'b0}},
+                        i_register[8 +: 8*(PAYLOAD_LENGTH + 21)],
+                        START_CODE};
+        end
+        else begin
+            register = {EOF_CODE, i_register[8*PACKET_LENGTH - 1 : 8], START_CODE};
+        end
+        
         
         next_counter = counter;
         next_state = state;
@@ -99,59 +78,58 @@ module MII_gen
 
         case(state) 
             IDLE: begin
-                //aux_int = 0;
-                // aux_int_sr = 0;
-                // byte_counter_int = 0;
                 next_tx_data = {8{IDLE_CODE}};
                 next_tx_control = 8'hFF;
 
-                if(i_valid) begin //mac start
-
-                    if ((counter >= 12)) begin
-                        next_counter = 0;
-                        next_state = PAYLOAD;
-                        next_valid = 1'b1;
-                    end else begin
-                        next_counter = counter + 8;
-                        next_state = IDLE;
-                    end
+                if ((counter >= 12)) begin
+                    next_counter = 0;
+                    next_state = PAYLOAD;
+                    next_valid = 1'b1;
                 end else begin
                     next_counter = counter + 8;
                     next_state = IDLE;
                 end
             end
             PAYLOAD: begin
+                if(PAYLOAD_LENGTH < 46 && counter >= 64) begin
+                    next_tx_data = register[8*counter +: 64];
 
-                if(valid) begin
-                    next_tx_data = register[64*counter +: 64];
-
-                    for ( i=0; i < 64; i= i +1) begin
-                        if(next_tx_data[i*8 +:8] == START_CODE || next_tx_data[i*8 +:8] == EOF_CODE) begin
-                            next_tx_control[i] = 1'b1;
-                        end else begin
-                            next_tx_control[i] = 1'b0;
-                        end
-                    end
-                    next_counter = counter + 8;
-                end
-                
-                if(i_mac_done) begin 
-                    if(counter*8 >= PACKET_LENGTH) begin
-                        if((counter - PACKET_LENGTH) == 0) begin
-                            next_valid = 0;
-                        end else if( (PACKET_LENGTH % 64) != 0) begin
-                            next_tx_data = {{(64 - PACKET_LENGTH%64){IDLE_CODE}}, register[PACKET_LENGTH - 1 -: PACKET_LENGTH%64]};
-                        end
-                    end
-                    
-                    next_tx_control = 8'hFF;
-                    next_valid = 1'b0;
+                    next_tx_control = 8'h00;
                     next_counter = 8;
-                    next_state = IDLE;
+                    next_state = DONE;
+                end
+                else if(PAYLOAD_LENGTH >= 46 && counter >= PACKET_LENGTH - 8) begin
+                    if( (PACKET_LENGTH % 8) == 0) begin
+                        next_tx_data = register[8*counter +: 64];
+
+                        next_tx_control = 8'h00;
+                        next_counter = 8;
+                        next_state = DONE;
+                    end 
+                    else  begin
+                        next_tx_data = {{8*(8 - (PACKET_LENGTH + 1) % 8){IDLE_CODE}}, register[8*(PACKET_LENGTH + 1) - 1 -: 8*((PACKET_LENGTH + 1) % 8)]};
+
+                        next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}};
+                        next_counter = 8;
+                        next_state = IDLE;
+                    end
+                end
+                else begin
+                    next_tx_data = register[8*counter +: 64];
+
+                    next_tx_control = 8'h00;
+                    next_counter = counter + 8;
+                    next_state = PAYLOAD;
                 end
             end
+            DONE: begin
+                next_tx_data = {{56{IDLE_CODE}}, 8'hFD};
+
+                next_tx_control = 8'hFF;
+                next_counter = 8;
+                next_state = IDLE;
+            end
         endcase
-        
     end
 
 
