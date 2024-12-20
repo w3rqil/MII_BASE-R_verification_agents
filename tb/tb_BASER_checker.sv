@@ -30,13 +30,22 @@ module tb_BASER_checker;
     */
     logic    [DATA_WIDTH-1:0]   o_txd               ;   // Output MII Data
     logic    [CTRL_WIDTH-1:0]   o_txc               ;   // Output MII Control
-    logic    [31:0]             o_block_count       ;   // Total number of 257b blocks received
-    logic    [31:0]             o_data_count        ;   // Total number of 257b blocks with all 64b data block received
-    logic    [31:0]             o_ctrl_count        ;   // Total number of 257b blocks with at least one 64b control block received
-    logic    [31:0]             o_inv_block_count   ;   // Total number of invalid blocks
-    logic    [31:0]             o_inv_pattern_count ;   // Total number of 257b blocks with invalid char pattern
-    logic    [31:0]             o_inv_format_count  ;   // Total number of 257b blocks with with invalid 64b format
-    logic    [31:0]             o_inv_sh_count      ;   // Total number of 257b blocks with invalid sync header
+    // 66b checker counters
+    logic    [31:0]             o_66_block_count       ;   // Total number of 66b blocks received
+    logic    [31:0]             o_66_data_count        ;   // Total number of 66b data blocks received
+    logic    [31:0]             o_66_ctrl_count        ;   // Total number of 66b control blocks received
+    logic    [31:0]             o_66_inv_block_count   ;   // Total number of invalid 66b blocks
+    logic    [31:0]             o_66_inv_pattern_count ;   // Total number of 66b blocks with invalid char pattern
+    logic    [31:0]             o_66_inv_format_count  ;   // Total number of 66b blocks with invalid format
+    logic    [31:0]             o_66_inv_sh_count      ;   // Total number of 66b blocks with invalid sync header
+    // 257b checker counters
+    logic    [31:0]             o_257_block_count       ;   // Total number of 257b blocks received
+    logic    [31:0]             o_257_data_count        ;   // Total number of 257b blocks with all 64b data block received
+    logic    [31:0]             o_257_ctrl_count        ;   // Total number of 257b blocks with at least one 64b control block received
+    logic    [31:0]             o_257_inv_block_count   ;   // Total number of invalid blocks
+    logic    [31:0]             o_257_inv_pattern_count ;   // Total number of 257b blocks with invalid char pattern
+    logic    [31:0]             o_257_inv_format_count  ;   // Total number of 257b blocks with with invalid 64b format
+    logic    [31:0]             o_257_inv_sh_count      ;   // Total number of 257b blocks with invalid sync header
 
     /*
     *------CONNECTIONS-------
@@ -145,7 +154,7 @@ module tb_BASER_checker;
         @(posedge valid)                                      ;
 
         // Display after all tests
-        if(o_inv_block_count == 0) begin
+        if(o_66_inv_block_count == 0) begin
             // Invalid blocks Not found
             $display("Final Result: TEST PASSED");
         end
@@ -154,69 +163,69 @@ module tb_BASER_checker;
             $display("Final Result: TEST FAILED");
         end
         // Display all counters
-        $display("Total Blocks Received: %0d"       ,   o_block_count                                                   );
-        $display("Data Blocks Received: %0d"        ,   o_data_count                                                    );
-        $display("Control Blocks Received: %0d"     ,   o_ctrl_count                                                    );
-        $display("Invalid Blocks Received: %0d"     ,   o_inv_block_count                                               );
-        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_inv_block_count) / real'(o_block_count)) * 100     );
+        $display("Total Blocks Received: %0d"       ,   o_66_block_count                                                   );
+        $display("Data Blocks Received: %0d"        ,   o_66_data_count                                                    );
+        $display("Control Blocks Received: %0d"     ,   o_66_ctrl_count                                                    );
+        $display("Invalid Blocks Received: %0d"     ,   o_66_inv_block_count                                               );
+        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_66_inv_block_count) / real'(o_66_block_count)) * 100     );
 
         $finish;
     end
 
     // Instantiate 257b to 66b checker
     BASER_257b_checker#(
-        .DATA_WIDTH             (DATA_WIDTH)            ,
-        .HDR_WIDTH              (HDR_WIDTH)             ,
-        .FRAME_WIDTH            (FRAME_WIDTH)           ,
-        .TC_DATA_WIDTH          (TC_DATA_WIDTH)         ,
-        .TC_HDR_WIDTH           (TC_HDR_WIDTH)          ,
-        .TC_WIDTH               (TC_WIDTH)              ,
-        .DATA_CHAR_PATTERN      (DATA_CHAR_PATTERN)     ,
-        .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN)     ,
-        .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN)
+        .DATA_WIDTH             (DATA_WIDTH                 ),
+        .HDR_WIDTH              (HDR_WIDTH                  ),
+        .FRAME_WIDTH            (FRAME_WIDTH                ),
+        .TC_DATA_WIDTH          (TC_DATA_WIDTH              ),
+        .TC_HDR_WIDTH           (TC_HDR_WIDTH               ),
+        .TC_WIDTH               (TC_WIDTH                   ),
+        .DATA_CHAR_PATTERN      (DATA_CHAR_PATTERN          ),
+        .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN          ),
+        .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN          )
     ) dut_257b (
-        .clk                    (valid)                 ,
-        .i_rst                  (i_rst)                 ,
-        .i_rx_xcoded            (i_rx_xcoded)           ,
-        .o_rx_coded_0           (rx_coded_0)            ,
-        .o_rx_coded_1           (rx_coded_1)            ,
-        .o_rx_coded_2           (rx_coded_2)            ,
-        .o_rx_coded_3           (rx_coded_3)            ,
-        .o_block_count          (o_block_count)         ,
-        .o_data_count           (o_data_count)          ,
-        .o_ctrl_count           (o_ctrl_count)          ,
-        .o_inv_block_count      (o_inv_block_count)     ,
-        .o_inv_pattern_count    (o_inv_pattern_count)   ,
-        .o_inv_format_count     (o_inv_format_count)    ,
-        .o_inv_sh_count         (o_inv_sh_count)
+        .clk                    (valid                      ),
+        .i_rst                  (i_rst                      ),
+        .i_rx_xcoded            (i_rx_xcoded                ),
+        .o_rx_coded_0           (rx_coded_0                 ),
+        .o_rx_coded_1           (rx_coded_1                 ),
+        .o_rx_coded_2           (rx_coded_2                 ),
+        .o_rx_coded_3           (rx_coded_3                 ),
+        .o_block_count          (o_257_block_count          ),
+        .o_data_count           (o_257_data_count           ),
+        .o_ctrl_count           (o_257_ctrl_count           ),
+        .o_inv_block_count      (o_257_inv_block_count      ),
+        .o_inv_pattern_count    (o_257_inv_pattern_count    ),
+        .o_inv_format_count     (o_257_inv_format_count     ),
+        .o_inv_sh_count         (o_257_inv_sh_count         )
     );
 
     // Instantiate 66b to MII checker
     BASER_66b_checker#(
-        .DATA_WIDTH             (DATA_WIDTH             ),
-        .HDR_WIDTH              (HDR_WIDTH              ),
-        .FRAME_WIDTH            (FRAME_WIDTH            ),
-        .CTRL_WIDTH             (CTRL_WIDTH             ),
-        .DATA_CHAR_PATTERN      (DATA_CHAR_PATTERN      ),
-        .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN      ),
-        .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN      )
+        .DATA_WIDTH             (DATA_WIDTH                 ),
+        .HDR_WIDTH              (HDR_WIDTH                  ),
+        .FRAME_WIDTH            (FRAME_WIDTH                ),
+        .CTRL_WIDTH             (CTRL_WIDTH                 ),
+        .DATA_CHAR_PATTERN      (DATA_CHAR_PATTERN          ),
+        .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN          ),
+        .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN          )
     ) dut_66b (
-        .clk                    (clk                    ),
-        .i_rst                  (i_rst                  ),
-        .i_rx_coded_0           (rx_coded_0             ),
-        .i_rx_coded_1           (rx_coded_1             ),
-        .i_rx_coded_2           (rx_coded_2             ),
-        .i_rx_coded_3           (rx_coded_3             ),
-        .o_txd                  (o_txd                  ),
-        .o_txc                  (o_txc                  ),
-        .o_block_count          (                       ),  // Vacio por ahora
-        .o_data_count           (                       ),
-        .o_ctrl_count           (                       ),
-        .o_inv_block_count      (                       ),
-        .o_inv_pattern_count    (                       ),
-        .o_inv_format_count     (                       ),
-        .o_inv_sh_count         (                       ),
-        .o_valid                (valid                  )
+        .clk                    (clk                        ),
+        .i_rst                  (i_rst                      ),
+        .i_rx_coded_0           (rx_coded_0                 ),
+        .i_rx_coded_1           (rx_coded_1                 ),
+        .i_rx_coded_2           (rx_coded_2                 ),
+        .i_rx_coded_3           (rx_coded_3                 ),
+        .o_txd                  (o_txd                      ),
+        .o_txc                  (o_txc                      ),
+        .o_block_count          (o_66_block_count           ),
+        .o_data_count           (o_66_data_count            ),
+        .o_ctrl_count           (o_66_ctrl_count            ),
+        .o_inv_block_count      (o_66_inv_block_count       ),
+        .o_inv_pattern_count    (o_66_inv_pattern_count     ),
+        .o_inv_format_count     (o_66_inv_format_count      ),
+        .o_inv_sh_count         (o_66_inv_sh_count          ),
+        .o_valid                (valid                      )
     );
 
 endmodule
