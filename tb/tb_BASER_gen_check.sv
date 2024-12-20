@@ -214,7 +214,7 @@ module tb_BASER_gen_check;
         .i_random_0           (i_random_0               ),
         .i_tx_test_mode       (i_tx_test_mode           ),
         .i_rst_n              (!i_rst                   ),    // Reset negado
-        .clk                  (o_valid                      )
+        .clk                  (clk                      )
     );
 
     // Instantiate 257b checker
@@ -229,7 +229,7 @@ module tb_BASER_gen_check;
         .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN      ),
         .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN      )
     ) dut_257b_check (
-        .clk                    (o_valid                    ),
+        .clk                    (o_valid                ),
         .i_rst                  (i_rst                  ),
         .i_rx_xcoded            (i_rx_xcoded            ),
         .o_rx_coded_0           (o_rx_coded_0           ),
