@@ -1,7 +1,5 @@
 /*
-    Conexion entre el generador y el checker de BASE-R. Al checker entra solo
-    la interfaz de 257 bits antes de ser distribuido en dos flujos para luego
-    entrar al scrambler.
+    Conexion entre el generador y el checker de señal 1.6TBASE-R
 */
 
 `timescale 1ns/100ps
@@ -37,62 +35,62 @@ module tb_BASER_gen_check;
     /*
     *---------------------INPUTS-------------------------
     */
-    logic                             clk               ;   // Clock input
-    logic                             i_rst             ;   // Asynchronous reset
+    logic                               clk                             ;   // Clock input
+    logic                               i_rst                           ;   // Asynchronous reset
 
     // Generator
-    logic [DATA_WIDTH        - 1 : 0] i_txd             ;   /* Input data                             */
-    logic [CTRL_WIDTH     - 1 : 0] i_txc             ;   /* Input control byte                     */
-    logic [TRANSCODER_BLOCKS - 1 : 0] i_data_sel_0      ;   /* Data selector                          */
-    logic [                    1 : 0] i_valid           ;   /* Input to enable frame generation       */    
-    logic                             i_enable          ;   /* Flag to enable frame generation        */
-    logic                             i_random_0        ;   /* Flag to enable random frame generation */
-    logic                             i_tx_test_mode    ;   /* Flag to enable TX test mode            */
+    logic [DATA_WIDTH        - 1 : 0]   i_txd                           ;   /* Input data                             */
+    logic [CTRL_WIDTH        - 1 : 0]   i_txc                           ;   /* Input control byte                     */
+    logic [TRANSCODER_BLOCKS - 1 : 0]   i_data_sel_0                    ;   /* Data selector                          */
+    logic [                    1 : 0]   i_valid                         ;   /* Input to enable frame generation       */    
+    logic                               i_enable                        ;   /* Flag to enable frame generation        */
+    logic                               i_random_0                      ;   /* Flag to enable random frame generation */
+    logic                               i_tx_test_mode                  ;   /* Flag to enable TX test mode            */
     // 257b Checker
-    logic [TC_WIDTH          - 1 : 0] i_rx_xcoded       ;   // Received data
+    logic [TC_WIDTH          - 1 : 0]   i_rx_xcoded                     ;   // Received data
     // 66b Checker
-    logic    [FRAME_WIDTH-1:0]   i_rx_coded_0           ;   // 1st 64b block
-    logic    [FRAME_WIDTH-1:0]   i_rx_coded_1           ;   // 2nd 64b block
-    logic    [FRAME_WIDTH-1:0]   i_rx_coded_2           ;   // 3rd 64b block
-    logic    [FRAME_WIDTH-1:0]   i_rx_coded_3           ;   // 4th 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_0                    ;   // 1st 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_1                    ;   // 2nd 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_2                    ;   // 3rd 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_3                    ;   // 4th 64b block
 
     /*
     *---------------------OUTPUTS------------------------
     */
     // Generator
-    logic [TC_WIDTH          - 1 : 0] o_tx_coded_f0     ;   /* Output transcoder                      */
-    logic [FRAME_WIDTH       - 1 : 0] o_frame_0         ;   /* Output frame 0                         */
-    logic [FRAME_WIDTH       - 1 : 0] o_frame_1         ;   /* Output frame 1                         */
-    logic [FRAME_WIDTH       - 1 : 0] o_frame_2         ;   /* Output frame 2                         */
-    logic [FRAME_WIDTH       - 1 : 0] o_frame_3         ;   /* Output frame 3                         */
+    logic [TC_WIDTH          - 1 : 0]   o_tx_coded_f0                   ;   /* Output transcoder                      */
+    logic [FRAME_WIDTH       - 1 : 0]   o_frame_0                       ;   /* Output frame 0                         */
+    logic [FRAME_WIDTH       - 1 : 0]   o_frame_1                       ;   /* Output frame 1                         */
+    logic [FRAME_WIDTH       - 1 : 0]   o_frame_2                       ;   /* Output frame 2                         */
+    logic [FRAME_WIDTH       - 1 : 0]   o_frame_3                       ;   /* Output frame 3                         */
     // 257b Checker
-    logic [FRAME_WIDTH       - 1 : 0] o_rx_coded_0              ;   // 1st 64b block
-    logic [FRAME_WIDTH       - 1 : 0] o_rx_coded_1              ;   // 2nd 64b block
-    logic [FRAME_WIDTH       - 1 : 0] o_rx_coded_2              ;   // 3rd 64b block
-    logic [FRAME_WIDTH       - 1 : 0] o_rx_coded_3              ;   // 4th 64b block
-    logic [                   31 : 0] o_257_block_count             ;   // Total number of 257b blocks received
-    logic [                   31 : 0] o_257_data_count              ;   // Total number of 257b blocks with all 64b data block received
-    logic [                   31 : 0] o_257_ctrl_count              ;   // Total number of 257b blocks with at least one 64b control block received
-    logic [                   31 : 0] o_257_inv_block_count         ;   // Total number of invalid blocks
-    logic [                   31 : 0] o_257_inv_pattern_count       ;   // Total number of 257b blocks with invalid char pattern
-    logic [                   31 : 0] o_257_inv_format_count        ;   // Total number of 257b blocks with with invalid 64b format
-    logic [                   31 : 0] o_257_inv_sh_count            ;   // Total number of 257b blocks with invalid sync header
+    logic [FRAME_WIDTH       - 1 : 0]   o_rx_coded_0                    ;   // 1st 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   o_rx_coded_1                    ;   // 2nd 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   o_rx_coded_2                    ;   // 3rd 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   o_rx_coded_3                    ;   // 4th 64b block
+    logic [                   31 : 0]   o_257_block_count               ;   // Total number of 257b blocks received
+    logic [                   31 : 0]   o_257_data_count                ;   // Total number of 257b blocks with all 64b data block received
+    logic [                   31 : 0]   o_257_ctrl_count                ;   // Total number of 257b blocks with at least one 64b control block received
+    logic [                   31 : 0]   o_257_inv_block_count           ;   // Total number of invalid blocks
+    logic [                   31 : 0]   o_257_inv_pattern_count         ;   // Total number of 257b blocks with invalid char pattern
+    logic [                   31 : 0]   o_257_inv_format_count          ;   // Total number of 257b blocks with with invalid 64b format
+    logic [                   31 : 0]   o_257_inv_sh_count              ;   // Total number of 257b blocks with invalid sync header
     // 66b Checker
-    logic    [DATA_WIDTH-1:0]   o_txd               ;   // Output MII Data
-    logic    [CTRL_WIDTH-1:0]   o_txc               ;   // Output MII Control
-    logic    [31:0]             o_66_block_count       ;   // Total number of 66b blocks received
-    logic    [31:0]             o_66_data_count        ;   // Total number of 66b data blocks received
-    logic    [31:0]             o_66_ctrl_count        ;   // Total number of 66b control blocks received
-    logic    [31:0]             o_66_inv_block_count   ;   // Total number of invalid 66b blocks
-    logic    [31:0]             o_66_inv_pattern_count ;   // Total number of 66b blocks with invalid char pattern
-    logic    [31:0]             o_66_inv_format_count  ;   // Total number of 66b blocks with invalid format
-    logic    [31:0]             o_66_inv_sh_count      ;   // Total number of 66b blocks with invalid sync header
-    logic                       o_valid                ;    // Valid signal for 257b checker
+    logic [DATA_WIDTH        - 1 : 0]   o_txd                           ;   // Output MII Data
+    logic [CTRL_WIDTH        - 1 : 0]   o_txc                           ;   // Output MII Control
+    logic [                   31 : 0]   o_66_block_count                ;   // Total number of 66b blocks received
+    logic [                   31 : 0]   o_66_data_count                 ;   // Total number of 66b data blocks received
+    logic [                   31 : 0]   o_66_ctrl_count                 ;   // Total number of 66b control blocks received
+    logic [                   31 : 0]   o_66_inv_block_count            ;   // Total number of invalid 66b blocks
+    logic [                   31 : 0]   o_66_inv_pattern_count          ;   // Total number of 66b blocks with invalid char pattern
+    logic [                   31 : 0]   o_66_inv_format_count           ;   // Total number of 66b blocks with invalid format
+    logic [                   31 : 0]   o_66_inv_sh_count               ;   // Total number of 66b blocks with invalid sync header
+    logic                               o_valid                         ;   // Valid signal for 257b checker
 
     // Clock generation
     always #5 clk = ~clk; // 100 MHz clock
 
-    // Connections
+    // Loopback Generator-Checker
     assign i_rx_xcoded = o_tx_coded_f0;
     assign i_rx_coded_0 = o_rx_coded_0;
     assign i_rx_coded_1 = o_rx_coded_1;
@@ -181,40 +179,40 @@ module tb_BASER_gen_check;
             $display("Final Result: TEST FAILED");
         end
         // Display all counters
-        $display("Total Blocks Received: %0d"       ,   o_66_block_count                                                   );
-        $display("Data Blocks Received: %0d"        ,   o_66_data_count                                                    );
-        $display("Control Blocks Received: %0d"     ,   o_66_ctrl_count                                                    );
-        $display("Invalid Blocks Received: %0d"     ,   o_66_inv_block_count                                               );
-        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_66_inv_block_count) / real'(o_66_block_count)) * 100     );
+        $display("Total Blocks Received: %0d"       ,   o_66_block_count                                                    );
+        $display("Data Blocks Received: %0d"        ,   o_66_data_count                                                     );
+        $display("Control Blocks Received: %0d"     ,   o_66_ctrl_count                                                     );
+        $display("Invalid Blocks Received: %0d"     ,   o_66_inv_block_count                                                );
+        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_66_inv_block_count) / real'(o_66_block_count)) * 100   );
 
         $finish;
     end
 
     // Instantiate generator
     PCS_generator # (
-        .DATA_WIDTH           (DATA_WIDTH               ),
-        .HDR_WIDTH            (HDR_WIDTH                ),
-        .FRAME_WIDTH          (FRAME_WIDTH              ),
-        .CONTROL_WIDTH        (CTRL_WIDTH               ),
-        .TRANSCODER_BLOCKS    (TRANSCODER_BLOCKS        ),
-        .TRANSCODER_WIDTH     (TC_WIDTH                 ),
-        .TRANSCODER_HDR_WIDTH (TRANSCODER_HDR_WIDTH     ),
-        .PROB                 (PROB                     )
+        .DATA_WIDTH             (DATA_WIDTH             ),
+        .HDR_WIDTH              (HDR_WIDTH              ),
+        .FRAME_WIDTH            (FRAME_WIDTH            ),
+        .CONTROL_WIDTH          (CTRL_WIDTH             ),
+        .TRANSCODER_BLOCKS      (TRANSCODER_BLOCKS      ),
+        .TRANSCODER_WIDTH       (TC_WIDTH               ),
+        .TRANSCODER_HDR_WIDTH   (TRANSCODER_HDR_WIDTH   ),
+        .PROB                   (PROB                   )
     ) dut_gen (
-        .o_tx_coded_f0        (o_tx_coded_f0            ),
-        .o_frame_0            (o_frame_0                ),
-        .o_frame_1            (o_frame_1                ),
-        .o_frame_2            (o_frame_2                ),
-        .o_frame_3            (o_frame_3                ),
-        .i_txd                (i_txd                    ),
-        .i_txc                (i_txc                    ),
-        .i_data_sel_0         (i_data_sel_0             ),
-        .i_valid              (i_valid                  ),
-        .i_enable             (i_enable                 ),
-        .i_random_0           (i_random_0               ),
-        .i_tx_test_mode       (i_tx_test_mode           ),
-        .i_rst_n              (!i_rst                   ),    // Reset negado
-        .clk                  (clk                      )
+        .o_tx_coded_f0          (o_tx_coded_f0          ),
+        .o_frame_0              (o_frame_0              ),
+        .o_frame_1              (o_frame_1              ),
+        .o_frame_2              (o_frame_2              ),
+        .o_frame_3              (o_frame_3              ),
+        .i_txd                  (i_txd                  ),
+        .i_txc                  (i_txc                  ),
+        .i_data_sel_0           (i_data_sel_0           ),
+        .i_valid                (i_valid                ),
+        .i_enable               (i_enable               ),
+        .i_random_0             (i_random_0             ),
+        .i_tx_test_mode         (i_tx_test_mode         ),
+        .i_rst_n                (!i_rst                 ),    // Reset negado
+        .clk                    (clk                    )
     );
 
     // Instantiate 257b checker

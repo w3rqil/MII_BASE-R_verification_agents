@@ -1,3 +1,13 @@
+/*
+    Verificador de señal 1.6TBASE-R 64B/66B y conversor a 1.6TMII
+    Posee los siguientes contadores:
+        -> Bloques de dato recibidos
+        -> Bloques de control recibidos
+        -> Bloques con un patron que no coincide con el especificado en
+           los parametros
+        -> Bloques con un formato que no satisface la norma
+        -> Bloques con un sync header invalido
+*/
 `timescale 1ns/100ps
 
 module BASER_66b_checker
