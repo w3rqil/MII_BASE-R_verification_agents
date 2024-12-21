@@ -13,6 +13,7 @@ module mac_mii_top #(
     input wire [7:0] i_payload[PAYLOAD_LENGTH-1:0],
     input wire [7:0] i_interrupt,
 
+    output wire        o_txValid,
     output wire [63:0] o_mii_data,     // MII data output (8-bit)
     output wire [7:0] o_mii_valid     // MII valid signal
 );
@@ -62,6 +63,7 @@ module mac_mii_top #(
         .i_mii_tx_er(1'b0),            // No transmission error in this simulation
         .i_mii_tx_d(mac_frame_out),    // Frame data from MAC
         .i_register(register),
+        .o_txValid (o_txValid),
         .o_mii_tx_d(mii_tx_data),      // Unused in this version, processed internally
         .o_control(mii_control)        // Control signal from MII_gen
     );

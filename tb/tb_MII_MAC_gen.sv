@@ -20,7 +20,7 @@ module tb_mac_mii_top;
 
     wire [63:0] o_mii_data;
     wire [7:0] o_mii_valid;
-
+    wire valid;
     // Clock generation
     initial clk = 0;
     always #(CLK_PERIOD / 2) clk = ~clk;
@@ -39,6 +39,7 @@ module tb_mac_mii_top;
         .i_payload_length(i_payload_length),
         .i_payload(i_payload),
         .i_interrupt(i_interrupt),
+        .o_txValid (valid),
         .o_mii_data(o_mii_data),
         .o_mii_valid(o_mii_valid)
     );
@@ -72,14 +73,14 @@ module tb_mac_mii_top;
         #20;
         i_rst_n = 1;
 
-        preload_payload(50, '{8'hBB, 8'hAA, 8'hDE, 8'hAD, 8'hBE, 8'hEF, 8'h12, 8'h34, 8'h01, 8'h02,
-                              8'h03, 8'h04, 8'h05, 8'h06, 8'h07, 8'h08, 8'h09, 8'h10, 8'h11, 8'h12,
-                              8'h13, 8'hA4, 8'h35, 8'h26, 8'hF7, 8'hA8, 8'h19, 8'h1A, 8'h41, 8'h62,
-                              8'h23, 8'hB4, 8'h25, 8'h26, 8'hF7, 8'hC8, 8'h29, 8'h1B, 8'h51, 8'h72,
-                              8'h33, 8'hC4, 8'h15, 8'h26, 8'hD7, 8'hD8, 8'h39, 8'h2B, 8'h52, 8'h77}); // Preload payload
+        preload_payload(50, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
+                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
+                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
+                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
+                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE }); // Preload payload
         i_payload_length = 8; // Payload length = 6 bytes
         i_start = 1; // Trigger frame generation
-        repeat (50)@(posedge clk);
+        repeat (70)@(posedge clk);
         i_start = 0; // Deassert start
 
 
@@ -90,7 +91,7 @@ module tb_mac_mii_top;
         // i_start = 0;
 
         // Wait for frame to complete
-        #200;
+        repeat (10) @(posedge clk);
 
         // End simulation
         $stop;
