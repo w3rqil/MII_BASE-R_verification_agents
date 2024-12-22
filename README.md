@@ -2,7 +2,7 @@ Este proyecto fue realizado como parte de capacitación en un curso de la Fundac
 
 # MAC_MII_GEN
 
-![img](img/MII_MAC_diagram(1).png)
+![img](img/MII_MAC_diagrams(1).png)
 
 ## Descripción General
 
