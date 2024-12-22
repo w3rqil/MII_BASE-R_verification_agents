@@ -26,6 +26,17 @@ Para información más detallada y particular de los parámetros y señales part
 - `Inicio de Generación:` Cuando i_start se activa, el módulo comienza a generar la trama.
 - ` "interrpciones":`     La entrada **_i_interruption_**  es un arreglo de 8 bits que permite realizar algunas acciones específicas en la trasmisión. Por ahora las interrupciones disponibles son:
 
+| **Valor de `i_interrupt`** | **Descripción**                                      |
+|----------------------------|------------------------------------------------------|
+| `0`                        | Sin interrupción (comportamiento normal).            |
+| `1`                        | Interrupción para **Fixed Payload**: usa el patrón definido en `PAYLOAD_CHAR_PATTERN` para el payload. |
+| `2`                        | Interrupción **NO_PADDING**: deshabilita el padding cuando el payload tiene menos de 46 bytes. |
+| `3`                        | Reservado para uso futuro. |
+| `4`                        | Reservado para uso futuro. |
+| `5`                        | Reservado para uso futuro. |
+| `6`                        | Reservado para uso futuro. |
+| `7`                        | Reservado para uso futuro. |
+
 - `Indicador de Validez:` La señal o_valid indica que los datos en o_frame_out son válidos.
 - `Finalización:`         La señal o_done se activa una vez que la generación de la trama ha finalizado.
 
