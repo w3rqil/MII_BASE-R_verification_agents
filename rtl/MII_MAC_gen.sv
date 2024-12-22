@@ -15,7 +15,7 @@ module mac_mii_top #(
 
     output wire        o_txValid,
     output wire [63:0] o_mii_data,     // MII data output (8-bit)
-    output wire [7:0] o_mii_valid     // MII valid signal
+    output wire [7:0] o_mii_valid     // MII ctrl signal
 );
 
     // Signals to connect mac_frame_generator and MII_gen
