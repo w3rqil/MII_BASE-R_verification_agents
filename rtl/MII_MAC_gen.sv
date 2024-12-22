@@ -63,6 +63,7 @@ module mac_mii_top #(
         .i_mii_tx_er(1'b0),            // No transmission error in this simulation
         .i_mii_tx_d(mac_frame_out),    // Frame data from MAC
         .i_register(register),
+        .i_interrupt(i_interrupt),
         .o_txValid (o_txValid),
         .o_mii_tx_d(mii_tx_data),      // Unused in this version, processed internally
         .o_control(mii_control)        // Control signal from MII_gen

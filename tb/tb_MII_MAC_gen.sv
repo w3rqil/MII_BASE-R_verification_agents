@@ -51,7 +51,7 @@ module tb_mac_mii_top;
         i_start = 0;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
-        i_eth_type = 16'h0800;              // IP protocol
+        i_eth_type = 16'h32;              // IP protocol
         i_payload_length = PAYLOAD_LENGTH;
         i_interrupt = 8'd0;                // No interrupt
         
@@ -77,7 +77,7 @@ module tb_mac_mii_top;
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
-                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE }); // Preload payload
+                              8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE}); // Preload payload
         i_payload_length = 8; // Payload length = 6 bytes
         i_start = 1; // Trigger frame generation
         repeat (70)@(posedge clk);

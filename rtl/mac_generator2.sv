@@ -19,7 +19,8 @@ module mac_frame_generator #(
 );
 
     localparam [7:0]
-                    FIXED_PAYLOAD = 8'd1;
+                    FIXED_PAYLOAD   = 8'd1,
+                    NO_PADDING      = 8'd2;
 
     localparam PAYLOAD_SIZE = (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                                    ;
     // State machine states
@@ -41,7 +42,7 @@ module mac_frame_generator #(
     logic [63:0] payload_shift_reg                                                                                          ;   // Shift register for 64-bit payload output
     reg [15:0] payload_index                                                                                                ;   // Index for reading payload bytes
     reg [15:0] padding_counter                                                                                              ;   // Counter for adding padding if payload < 46 bytes
-    logic [(PAYLOAD_LENGTH)*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS 
+    logic [(PAYLOAD_SIZE)*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS 
     // Constants for Ethernet frame                                                             
     // localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                                   ; // Preamble (7 bytes) + SFD (1 byte)
     localparam [63:0] PREAMBLE_SFD = 64'hD555555555555555                                                                   ; // Preamble (7 bytes) + SFD (1 byte)
@@ -84,13 +85,25 @@ module mac_frame_generator #(
             //general_shift_reg <= {header_shift_reg, }
     
             //prepare payload
-            for(i=0; i<PAYLOAD_SIZE*8; i= i+1) begin
-
-                    payload_reg[(i*8) +:8]  = (i<=i_eth_type) ? i_payload[i] : 8'h00                                        ;
-
-                    if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
-                        payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN                                                      ;
-                    end
+            if(!(i_interrupt == NO_PADDING)) begin
+                for(i=0; i<PAYLOAD_SIZE; i= i+1) begin
+                        $display("PADDING");
+                        
+                        payload_reg[(i*8) +:8]  = (i<PAYLOAD_LENGTH) ? i_payload[i] : 8'h00                                        ;
+                        $display("BYTE %h; I VALIE: %d", (i<PAYLOAD_LENGTH) ? i_payload[i] : 8'h00, i);
+                        if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
+                            payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN                                                      ;
+                        end
+                end
+            end else begin // no padding interruption
+                $display("NO_PADDING");
+                for (i=0; i<PAYLOAD_LENGTH; i=i+1) begin
+                    payload_reg[(i*8) +:8]  = i_payload[i]                                                                     ;
+    
+                        if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
+                            payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN                                                      ;
+                        end
+                end
             end
 
             // if(i_eth_type < 46 ) begin // padding if needed
@@ -103,7 +116,7 @@ module mac_frame_generator #(
             // end
     
     
-    
+            
             gen_shift_reg = {payload_reg, header_shift_reg}                                                                 ; 
             
             //next_crc = 32'hFFFFFFFF;
@@ -177,6 +190,8 @@ module mac_frame_generator #(
         end
     end
 
-    assign o_register = {next_crc, gen_shift_reg, PREAMBLE_SFD};
+    assign o_register = (i_interrupt == NO_PADDING)? 
+                                                    {next_crc, gen_shift_reg[(PAYLOAD_LENGTH)*8 + 112 -1:0], PREAMBLE_SFD} :
+                                                    {next_crc, gen_shift_reg, PREAMBLE_SFD};
 
 endmodule

@@ -24,19 +24,21 @@ module MII_gen
     input wire          i_mii_tx_er                                                                                     , // 4'b0000
     input wire  [63:0]  i_mii_tx_d                                                                                      ,
     input wire  [PACKET_MAX_BITS-1:0] i_register                                                                        ,
-
+    input wire  [7: 0]  i_interrupt                                                                                     ,
     output wire         o_txValid                                                                                       ,
     output wire [63:0]  o_mii_tx_d                                                                                      ,
     output wire [7:0 ]  o_control
 );
-
-    localparam PACKET_LENGTH = PAYLOAD_LENGTH + 26;
-
+    localparam PAYLOAD_SIZE  =  (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                               ;
+    localparam PACKET_LENGTH = PAYLOAD_SIZE + 26;
+    localparam PACKET_LEN_NO_PADDING = PAYLOAD_LENGTH + 26;
     localparam [7:0]
                     IDLE_CODE   = 8'h07,
                     START_CODE  = 8'hFB,
                     EOF_CODE    = 8'hFD;
     
+    localparam [7:0]
+                    NO_PADDING      = 8'd2;
     localparam [3:0]    
                     IDLE    = 4'b0001,
                     PAYLOAD = 4'b0010,
@@ -62,17 +64,21 @@ module MII_gen
     integer aux_int_sr, byte_counter_int, AUX_TEST                                                                      ;
 
     always @(*) begin : state_machine
-        if(PAYLOAD_LENGTH < 46) begin
-            register = {
-                        EOF_CODE                                    ,
-                        i_register[8*PACKET_LENGTH - 8 - 1 -: 32]   ,
-                        {8*(46 - PAYLOAD_LENGTH){1'b0}}             ,
-                        i_register[8 +: 8*(PAYLOAD_LENGTH + 21)]    ,
-                        START_CODE                                  }                                                   ;
-        end
-        else begin //
+        // if(PAYLOAD_LENGTH < 46) begin
+        //     register = {
+        //                 EOF_CODE                                    ,
+        //                 i_register[8*PACKET_LENGTH - 8 - 1 -: 32]   ,
+        //                 {8*(46 - PAYLOAD_LENGTH){1'b0}}             ,
+        //                 i_register[8 +: 8*(PAYLOAD_LENGTH + 21)]    ,
+        //                 START_CODE                                  }                                                   ;
+        // end
+        // else begin //
+        if(i_interrupt == NO_PADDING)begin // NO PADDING interrupt
+            register = {EOF_CODE, i_register[8*PACKET_LEN_NO_PADDING - 1 : 8], START_CODE}                                      ;
+        end else begin
             register = {EOF_CODE, i_register[8*PACKET_LENGTH - 1 : 8], START_CODE}                                      ;
         end
+        //end
         
         
         next_counter = counter                                                                                          ;
@@ -81,29 +87,21 @@ module MII_gen
 
         case(state) 
             IDLE: begin
+                next_valid = 1'b0                                                                                   ;
                 next_tx_data = {8{IDLE_CODE}}                                                                           ;
                 next_tx_control = 8'hFF                                                                                 ;
                 //outValid = 1'b0;                                                                      
                 if ((counter >= 12)) begin                                                                      
                     next_counter = 0                                                                                    ;
                     next_state = PAYLOAD                                                                                ;
-                    next_valid = 1'b1                                                                                   ;
                 end else begin                                                                      
                     next_counter = counter + 8                                                                          ;
                     next_state = IDLE                                                                                   ;
                 end
             end
             PAYLOAD: begin
-                //outValid = 1'b1;
-                if(PAYLOAD_LENGTH < 46 && counter >= 64) begin
-                    next_tx_data = register[8*counter +: 64]                                                            ;
-
-                    next_tx_control = 8'h00                                                                             ;
-                    next_counter = 8                                                                                    ;
-                    next_state = DONE                                                                                   ;
-                end // to do: better algorithms
-
-                else if(PAYLOAD_LENGTH >= 46 && counter >= PACKET_LENGTH - 8) begin
+                next_valid = 1'b1                                                                                       ;
+                if(counter >= PACKET_LENGTH - 8) begin //PAYLOAD_LENGTH >= 46
                     if( (PACKET_LENGTH % 8) == 0) begin
                         next_tx_data = register[8*counter +: 64]                                                        ;
 
@@ -130,6 +128,7 @@ module MII_gen
                     next_counter = counter + 8                                                                          ;
                     next_state = PAYLOAD                                                                                ;
                 end
+                //end
             end
             DONE: begin
                 next_tx_data = {{7{IDLE_CODE}}, 8'hFD}                                                                  ;
