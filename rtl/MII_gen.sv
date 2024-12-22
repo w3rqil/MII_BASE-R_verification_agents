@@ -116,15 +116,28 @@ module MII_gen
                         next_tx_data = {{8*(8 - (PACKET_LENGTH + 1) % 8){IDLE_CODE}}, 
                                         register[8*(PACKET_LENGTH + 1) - 1 -: 8*((PACKET_LENGTH + 1) % 8)]}             ;
 
-                        next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}}                  ;
+                        //next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}}                  ;
+                        for(i=0; i<64; i++) begin
+                            if((next_tx_data[i*8 +:8] == START_CODE)|| (next_tx_data[i*8 +:8] == EOF_CODE) || (next_tx_data[i*8 +:8] == IDLE_CODE) )begin
+                                next_tx_control[i] = 1'b1;
+                            end else begin
+                                next_tx_control [i]= 1'b0;
+                            end
+                        end
                         next_counter = (8 - (PACKET_LENGTH + 1) % 8); // value of idle code sended
                         next_state = IDLE;
                     end
                 end
                 else begin
                     next_tx_data = register[8*counter +: 64]                                                            ;
-
-                    next_tx_control = 8'h00                                                                             ;
+                    for(i=0; i<64; i++) begin
+                        if((next_tx_data[i*8 +:8] == START_CODE)|| (next_tx_data[i*8 +:8] == EOF_CODE) || (next_tx_data[i*8 +:8] == IDLE_CODE))begin
+                            next_tx_control[i] = 1'b1;
+                        end else begin
+                            next_tx_control [i]= 1'b0;
+                        end
+                    end
+                    //next_tx_control = 8'h00                                                                             ;
                     next_counter = counter + 8                                                                          ;
                     next_state = PAYLOAD                                                                                ;
                 end
@@ -133,7 +146,7 @@ module MII_gen
             DONE: begin
                 next_tx_data = {{7{IDLE_CODE}}, 8'hFD}                                                                  ;
 
-                next_tx_control = 8'hFF                                                                                 ;
+                next_tx_control = 8'h01                                                                                 ;
                 next_counter = 7                                                                                        ; // sended 7 idle codes
                 next_state = IDLE                                                                                       ;
             end
