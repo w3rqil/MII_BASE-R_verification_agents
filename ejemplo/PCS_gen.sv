@@ -50,13 +50,13 @@ localparam [CONTROL_WIDTH - 1 : 0]
 
 localparam [DATA_WIDTH - 1 : 0]             
     FIXED_PATTERN_0_DATA = 64'hAAAAAAAAAAAAAAAA                                                                                                                                                                                                                                                     ,
-    FIXED_PATTERN_1_DATA = 64'h3333333333333333                                                                                                                                                                                                                                                     ,
-    FIXED_PATTERN_2_DATA = 64'hFFFFFFFFFFFFFFFF                                                                                                                                                                                                                                                     ,
-    FIXED_PATTERN_3_DATA = 64'h0000000000000000                                                                                                                                                                                                                                                     ,
-    FIXED_PATTERN_0_CTRL = {8{MII_IDLE}}                                                                                                                                                                                                                                                            , 
+    FIXED_PATTERN_1_DATA = 64'hAAAAAAAAAAAAAAAA                                                                                                                                                                                                                                                     ,
+    FIXED_PATTERN_2_DATA = 64'hAAAAAAAAAAAAAAAA                                                                                                                                                                                                                                                     ,
+    FIXED_PATTERN_3_DATA = 64'hAAAAAAAAAAAAAAAA                                                                                                                                                                                                                                                     ,
+    FIXED_PATTERN_0_CTRL = {8{MII_ERROR}}                                                                                                                                                                                                                                                            , 
     FIXED_PATTERN_1_CTRL = {MII_START, {7{8'hAA}}}                                                                                                                                                                                                                                                  , 
-    FIXED_PATTERN_2_CTRL = {MII_SEQ  , {7{8'h33}}}                                                                                                                                                                                                                                                  ,
-    FIXED_PATTERN_3_CTRL = {MII_TERM , {7{8'h00}}}                                                                                                                                                                                                                                                  ;                                                      
+    FIXED_PATTERN_2_CTRL = {MII_SEQ  , {7{8'hAA}}}                                                                                                                                                                                                                                                  ,
+    FIXED_PATTERN_3_CTRL = {MII_TERM , {7{8'hFE}}}                                                                                                                                                                                                                                                  ;                                                      
 
 localparam [CONTROL_WIDTH - 1 : 0]              
     BLOCK_TYPE_FIELD_0  = 8'h1E   /* Block type field 0 */                                                                                                                                                                                                                                          ,
@@ -319,7 +319,7 @@ task automatic invert_257_frame(
                     frame[DATA_WIDTH * 3 + CONTROL_WIDTH -: TRANSCODER_BLOCKS] = i_frame[TRANSCODER_WIDTH - 2 - TRANSCODER_BLOCKS - DATA_WIDTH * 3 -: TRANSCODER_BLOCKS]                                                                                                                            ;
                     
                     for(int i = 25; i < 32; i = i + 1'b1) begin
-                        frame[CONTROL_WIDTH * (i+1) -: CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                            ;
+                        frame[CONTROL_WIDTH * (i+1) - : CONTROL_WIDTH] = i_frame[TRANSCODER_WIDTH - 2 - CONTROL_WIDTH*i -: CONTROL_WIDTH]                                                                                                                                                            ;
                     end
 
                 end
@@ -408,7 +408,8 @@ task automatic mii_to_pcs(
     if(i_txc != TXC_TYPE_DATA) begin
         // Compare control byte with PCS control bytes and generate frame
         frame =     (i_txc == TXC_TYPE_FIELD_0 && 
-                    i_txd[DATA_WIDTH - 0*CONTROL_WIDTH -1 -: CONTROL_WIDTH] != MII_TERM) ? {CTRL_SYNC, BLOCK_TYPE_FIELD_0, 
+                    i_txd[DATA_WIDTH - 0*CONTROL_WIDTH -1 -: CONTROL_WIDTH] != MII_TERM &&
+                    i_txd[DATA_WIDTH - 0*CONTROL_WIDTH -1 -: CONTROL_WIDTH] != MII_ERROR)? {CTRL_SYNC, BLOCK_TYPE_FIELD_0, 
                         pcs_data[DATA_WIDTH - 0*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1], 
                         pcs_data[DATA_WIDTH - 1*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1], 
                         pcs_data[DATA_WIDTH - 2*CONTROL_WIDTH - 2 -: CONTROL_WIDTH - 1],
