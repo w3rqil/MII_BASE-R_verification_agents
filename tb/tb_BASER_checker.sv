@@ -35,8 +35,6 @@ module tb_BASER_checker;
     logic    [31:0]             o_66_data_count        ;   // Total number of 66b data blocks received
     logic    [31:0]             o_66_ctrl_count        ;   // Total number of 66b control blocks received
     logic    [31:0]             o_66_inv_block_count   ;   // Total number of invalid 66b blocks
-    logic    [31:0]             o_66_inv_pattern_count ;   // Total number of 66b blocks with invalid char pattern
-    logic    [31:0]             o_66_inv_format_count  ;   // Total number of 66b blocks with invalid format
     logic    [31:0]             o_66_inv_sh_count      ;   // Total number of 66b blocks with invalid sync header
     // 257b checker counters
     logic    [31:0]             o_257_block_count       ;   // Total number of 257b blocks received
@@ -154,7 +152,7 @@ module tb_BASER_checker;
         @(posedge valid)                                      ;
 
         // Display after all tests
-        if(o_66_inv_block_count == 0) begin
+        if(o_257_inv_block_count == 0) begin
             // Invalid blocks Not found
             $display("Final Result: TEST PASSED");
         end
@@ -163,11 +161,11 @@ module tb_BASER_checker;
             $display("Final Result: TEST FAILED");
         end
         // Display all counters
-        $display("Total Blocks Received: %0d"       ,   o_66_block_count                                                   );
-        $display("Data Blocks Received: %0d"        ,   o_66_data_count                                                    );
-        $display("Control Blocks Received: %0d"     ,   o_66_ctrl_count                                                    );
-        $display("Invalid Blocks Received: %0d"     ,   o_66_inv_block_count                                               );
-        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_66_inv_block_count) / real'(o_66_block_count)) * 100     );
+        $display("Total Blocks Received: %0d"       ,   o_257_block_count                                                   );
+        $display("Data Blocks Received: %0d"        ,   o_257_data_count                                                    );
+        $display("Control Blocks Received: %0d"     ,   o_257_ctrl_count                                                    );
+        $display("Invalid Blocks Received: %0d"     ,   o_257_inv_block_count                                               );
+        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_257_inv_block_count) / real'(o_257_block_count)) * 100     );
 
         $finish;
     end
@@ -222,8 +220,6 @@ module tb_BASER_checker;
         .o_data_count           (o_66_data_count            ),
         .o_ctrl_count           (o_66_ctrl_count            ),
         .o_inv_block_count      (o_66_inv_block_count       ),
-        .o_inv_pattern_count    (o_66_inv_pattern_count     ),
-        .o_inv_format_count     (o_66_inv_format_count      ),
         .o_inv_sh_count         (o_66_inv_sh_count          ),
         .o_valid                (valid                      )
     );
