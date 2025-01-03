@@ -182,7 +182,7 @@ module tb_BASER_checker;
         .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN          ),
         .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN          )
     ) dut_257b (
-        .clk                    (valid                      ),
+        .clk                    (clk                        ),
         .i_rst                  (i_rst                      ),
         .i_rx_xcoded            (i_rx_xcoded                ),
         .o_rx_coded_0           (rx_coded_0                 ),
@@ -210,18 +210,14 @@ module tb_BASER_checker;
     ) dut_66b (
         .clk                    (clk                        ),
         .i_rst                  (i_rst                      ),
-        .i_rx_coded_0           (rx_coded_0                 ),
-        .i_rx_coded_1           (rx_coded_1                 ),
-        .i_rx_coded_2           (rx_coded_2                 ),
-        .i_rx_coded_3           (rx_coded_3                 ),
+        .i_rx_coded             (rx_coded_0                 ),
         .o_txd                  (o_txd                      ),
         .o_txc                  (o_txc                      ),
         .o_block_count          (o_66_block_count           ),
         .o_data_count           (o_66_data_count            ),
         .o_ctrl_count           (o_66_ctrl_count            ),
         .o_inv_block_count      (o_66_inv_block_count       ),
-        .o_inv_sh_count         (o_66_inv_sh_count          ),
-        .o_valid                (valid                      )
+        .o_inv_sh_count         (o_66_inv_sh_count          )
     );
 
 endmodule

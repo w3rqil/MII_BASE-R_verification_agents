@@ -37,10 +37,7 @@ module BASER_66b_checker
     */
     input  logic                        clk                         ,   // Clock input
     input  logic                        i_rst                       ,   // Asynchronous reset
-    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded_0                ,   // 1st 64b block
-    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded_1                ,   // 2nd 64b block
-    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded_2                ,   // 3rd 64b block
-    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded_3                ,   // 4th 64b block
+    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded                ,   // 64b block
     /*
     *--------OUTPUTS--------
     */
@@ -51,8 +48,7 @@ module BASER_66b_checker
     output logic    [31:0]              o_data_count                ,   // Total number of 66b data blocks received
     output logic    [31:0]              o_ctrl_count                ,   // Total number of 66b control blocks received
     output logic    [31:0]              o_inv_block_count           ,   // Total number of invalid 66b blocks
-    output logic    [31:0]              o_inv_sh_count              ,   // Total number of 66b blocks with invalid sync header
-    output logic                        o_valid                         // Valid signal for 257b checker
+    output logic    [31:0]              o_inv_sh_count                  // Total number of 66b blocks with invalid sync header
 );
 
 // MII Characters
@@ -82,11 +78,6 @@ logic [DATA_WIDTH-1:0] next_txd;
 logic [CTRL_WIDTH-1:0] txc;
 logic [CTRL_WIDTH-1:0] next_txc;
 
-// 66b blocks
-logic [FRAME_WIDTH-1:0] rx_coded;
-logic [1:0] addr;
-logic valid;
-
 // Total blocks counter
 logic [31:0] block_count            ;
 logic [31:0] next_block_count       ;
@@ -112,18 +103,18 @@ always @(*) begin
     next_inv_sh_count = inv_sh_count;
 
     // 66b block formats
-    if(rx_coded[HDR_WIDTH - 1 : 0] == 2'b01) begin
+    if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b01) begin
         // Control block
         next_ctrl_count = ctrl_count + 1'b1;
 
-        case (rx_coded[HDR_WIDTH +: 8])
+        case (i_rx_coded[HDR_WIDTH +: 8])
     
             // C7 C6 C5 C4 C3 C2 C1 C0
             8'h1E: begin
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] == {8{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] == {8{CTRL_IDLE}}) begin
                     next_txd = {8{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] == {8{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] == {8{CTRL_ERROR}}) begin
                     next_txd = {8{MII_ERROR}};
                 end
                 else begin
@@ -136,14 +127,14 @@ always @(*) begin
     
             // D7 D6 D5 D4 D3 D2 D1 S0
             8'h78: begin
-                next_txd = {rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8], MII_START};
+                next_txd = {i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8], MII_START};
                 next_txc = 8'h01;
                 // next_rx_type = S_TYPE;
             end
     
             // Z7 Z6 Z5 Z4 D3 D2 D1 O0
             8'h4B: begin
-                next_txd = {32'h0000_0000, rx_coded[HDR_WIDTH + 8 +: 24], MII_SEQ};
+                next_txd = {32'h0000_0000, i_rx_coded[HDR_WIDTH + 8 +: 24], MII_SEQ};
                 next_txc = 8'hF1;
                 // next_rx_type = C_TYPE;
             end
@@ -152,10 +143,10 @@ always @(*) begin
             8'h87: begin
                 next_txd[7 : 0] = MII_TERM;
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] == {7{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] == {7{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 8] = {7{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] == {7{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] == {7{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 8] = {7{MII_ERROR}};
                 end
                 else begin
@@ -168,12 +159,12 @@ always @(*) begin
     
             // C7 C6 C5 C4 C3 C2 T1 D0
             8'h99: begin
-                next_txd[15 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 8]};
+                next_txd[15 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 8]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] == {6{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] == {6{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 16] = {6{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] == {6{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] == {6{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 16] = {6{MII_ERROR}};
                 end
                 else begin
@@ -186,12 +177,12 @@ always @(*) begin
     
             // C7 C6 C5 C4 C3 T2 D1 D0
             8'hAA: begin
-                next_txd[23 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 16]};
+                next_txd[23 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 16]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == {5{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == {5{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 24] = {5{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == {5{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == {5{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 24] = {5{MII_ERROR}};
                 end
                 else begin
@@ -204,12 +195,12 @@ always @(*) begin
     
             // C7 C6 C5 C4 T3 D2 D1 D0
             8'hB4: begin
-                next_txd[31 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 24]};
+                next_txd[31 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 24]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] == {4{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] == {4{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 32] = {4{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] == {4{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] == {4{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 32] = {4{MII_ERROR}};
                 end
                 else begin
@@ -222,12 +213,12 @@ always @(*) begin
     
             // C7 C6 C5 T4 D3 D2 D1 D0
             8'hCC: begin
-                next_txd[39 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 32]};
+                next_txd[39 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 32]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 40] == {3{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 40] == {3{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 40] = {3{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 40] == {3{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 40] == {3{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 40] = {3{MII_ERROR}};
                 end
                 else begin
@@ -240,12 +231,12 @@ always @(*) begin
     
             // C7 C6 T5 D4 D3 D2 D1 D0
             8'hD2: begin
-                next_txd[47 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 40]};
+                next_txd[47 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 40]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 48] == {2{CTRL_IDLE}}) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 48] == {2{CTRL_IDLE}}) begin
                     next_txd[DATA_WIDTH-1 : 48] = {2{MII_IDLE}};
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 48] == {2{CTRL_ERROR}}) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 48] == {2{CTRL_ERROR}}) begin
                     next_txd[DATA_WIDTH-1 : 48] = {2{MII_ERROR}};
                 end
                 else begin
@@ -258,12 +249,12 @@ always @(*) begin
     
             // C7 T6 D5 D4 D3 D2 D1 D0
             8'hE1: begin
-                next_txd[55 : 0] = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 48]};
+                next_txd[55 : 0] = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 48]};
 
-                if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 56] == CTRL_IDLE) begin
+                if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 56] == CTRL_IDLE) begin
                     next_txd[DATA_WIDTH-1 : 56] = MII_IDLE;
                 end
-                else if(rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == CTRL_ERROR) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == CTRL_ERROR) begin
                     next_txd[DATA_WIDTH-1 : 56] = MII_ERROR;
                 end
                 else begin
@@ -276,7 +267,7 @@ always @(*) begin
     
             // T7 D6 D5 D4 D3 D2 D1 D0
             8'hFF: begin
-                next_txd = {MII_TERM, rx_coded[HDR_WIDTH + 8 +: 56]};
+                next_txd = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 56]};
                 next_txc = 8'h80;
                 // next_rx_type = T_TYPE;
             end
@@ -290,11 +281,11 @@ always @(*) begin
         endcase
         
     end
-    else if(rx_coded[HDR_WIDTH - 1 : 0] == 2'b10) begin
+    else if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b10) begin
         // Data block
         next_data_count = data_count + 1'b1;
 
-        next_txd = rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH];
+        next_txd = i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH];
         next_txc = 8'h00;
         // next_rx_type = D_TYPE;
     end
@@ -323,12 +314,9 @@ always @(posedge clk or posedge i_rst) begin
         ctrl_count <= '0;
         inv_block_count <= '0;
         inv_sh_count <= '0;
-        
-        valid <= '0;
-        addr <= '0;
     end
     else begin
-        // // if(rx_coded(i) = E || rx_coded(i-1) = E) -> send EBLOCK_R
+        // // if(i_rx_coded(i) = E || i_rx_coded(i-1) = E) -> send EBLOCK_R
         // if(rx_type == E_TYPE || next_rx_type == E_TYPE) begin
         //     txd <= {8{MII_ERROR}};
         //     txc <= 8'hFF;
@@ -347,23 +335,6 @@ always @(posedge clk or posedge i_rst) begin
         ctrl_count <= next_ctrl_count;
         inv_block_count <= next_inv_block_count;
         inv_sh_count <= next_inv_sh_count;
-        
-        case (addr)
-            2'd0: begin
-                rx_coded <= i_rx_coded_0;
-                o_valid <= 1'b1;
-            end
-            2'd1: begin
-                rx_coded <= i_rx_coded_1;
-                o_valid <= 1'b0;
-            end
-            2'd2: 
-                rx_coded <= i_rx_coded_2;
-            2'd3: 
-                rx_coded <= i_rx_coded_3;
-        endcase
-
-        addr <= addr + 1'b1;
     end
 end
 
@@ -374,6 +345,5 @@ assign o_ctrl_count = ctrl_count;
 assign o_data_count = data_count;
 assign o_inv_block_count = inv_block_count;
 assign o_inv_sh_count = inv_sh_count;
-assign o_valid = valid;
 
 endmodule

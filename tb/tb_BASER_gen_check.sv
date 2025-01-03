@@ -83,7 +83,6 @@ module tb_BASER_gen_check;
     logic [                   31 : 0]   o_66_ctrl_count                 ;   // Total number of 66b control blocks received
     logic [                   31 : 0]   o_66_inv_block_count            ;   // Total number of invalid 66b blocks
     logic [                   31 : 0]   o_66_inv_sh_count               ;   // Total number of 66b blocks with invalid sync header
-    logic                               o_valid                         ;   // Valid signal for 257b checker
 
     // Clock generation
     always #5 clk = ~clk; // 100 MHz clock
@@ -229,7 +228,7 @@ module tb_BASER_gen_check;
         .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN      ),
         .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN      )
     ) dut_257b_check (
-        .clk                    (o_valid                ),
+        .clk                    (clk                    ),
         .i_rst                  (i_rst                  ),
         .i_rx_xcoded            (i_rx_xcoded            ),
         .o_rx_coded_0           (o_rx_coded_0           ),
@@ -257,18 +256,14 @@ module tb_BASER_gen_check;
     ) dut_66b_check (
         .clk                    (clk                    ),
         .i_rst                  (i_rst                  ),
-        .i_rx_coded_0           (i_rx_coded_0           ),
-        .i_rx_coded_1           (i_rx_coded_1           ),
-        .i_rx_coded_2           (i_rx_coded_2           ),
-        .i_rx_coded_3           (i_rx_coded_3           ),
+        .i_rx_coded             (i_rx_coded_0           ),
         .o_txd                  (o_txd                  ),
         .o_txc                  (o_txc                  ),
         .o_block_count          (o_66_block_count       ),
         .o_data_count           (o_66_data_count        ),
         .o_ctrl_count           (o_66_ctrl_count        ),
         .o_inv_block_count      (o_66_inv_block_count   ),
-        .o_inv_sh_count         (o_66_inv_sh_count      ),
-        .o_valid                (o_valid                )
+        .o_inv_sh_count         (o_66_inv_sh_count      )
     );
 
 endmodule
