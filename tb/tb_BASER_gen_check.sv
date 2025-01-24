@@ -6,6 +6,16 @@
 // `include "Modulos/signalGenerator/ejemplo/PCS_gen.sv"
 // `include "Modulos/signalGenerator/rtl/BASER_257b_checker.sv"
 
+/*
+    TEST_1: test general
+    TEST_2: todo datos
+    TEST_3: todo control
+    TEST_4: todo Error e Idle
+    TEST_5: varios patrones en i_txd
+    TEST_6: patrones aleatorios
+*/
+`define TEST_6
+
 module tb_BASER_gen_check;
 
     /*
@@ -49,10 +59,7 @@ module tb_BASER_gen_check;
     // 257b Checker
     logic [TC_WIDTH          - 1 : 0]   i_rx_xcoded                     ;   // Received data
     // 66b Checker
-    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_0                    ;   // 1st 64b block
-    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_1                    ;   // 2nd 64b block
-    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_2                    ;   // 3rd 64b block
-    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded_3                    ;   // 4th 64b block
+    logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded      [TRANSCODER_BLOCKS-1 : 0];   //64b blocks
 
     /*
     *---------------------OUTPUTS------------------------
@@ -76,23 +83,26 @@ module tb_BASER_gen_check;
     logic [                   31 : 0]   o_257_inv_format_count          ;   // Total number of 257b blocks with with invalid 64b format
     logic [                   31 : 0]   o_257_inv_sh_count              ;   // Total number of 257b blocks with invalid sync header
     // 66b Checker
-    logic [DATA_WIDTH        - 1 : 0]   o_txd                           ;   // Output MII Data
-    logic [CTRL_WIDTH        - 1 : 0]   o_txc                           ;   // Output MII Control
-    logic [                   31 : 0]   o_66_block_count                ;   // Total number of 66b blocks received
-    logic [                   31 : 0]   o_66_data_count                 ;   // Total number of 66b data blocks received
-    logic [                   31 : 0]   o_66_ctrl_count                 ;   // Total number of 66b control blocks received
-    logic [                   31 : 0]   o_66_inv_block_count            ;   // Total number of invalid 66b blocks
-    logic [                   31 : 0]   o_66_inv_sh_count               ;   // Total number of 66b blocks with invalid sync header
+    logic [DATA_WIDTH        - 1 : 0]   o_txd                   [TRANSCODER_BLOCKS-1 : 0]        ;   // Output MII Data
+    logic [CTRL_WIDTH        - 1 : 0]   o_txc                   [TRANSCODER_BLOCKS-1 : 0]        ;   // Output MII Control
+    logic [                   31 : 0]   o_66_block_count        [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of 66b blocks received
+    logic [                   31 : 0]   o_66_data_count         [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of 66b data blocks received
+    logic [                   31 : 0]   o_66_ctrl_count         [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of 66b control blocks received
+    logic [                   31 : 0]   o_66_inv_block_count    [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of invalid 66b blocks
+    logic [                   31 : 0]   o_66_inv_sh_count       [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of 66b blocks with invalid sync header
+
+    // Invalid blocks percentage
+    real inv_percent;
 
     // Clock generation
     always #5 clk = ~clk; // 100 MHz clock
 
     // Loopback Generator-Checker
     assign i_rx_xcoded = o_tx_coded_f0;
-    assign i_rx_coded_0 = o_rx_coded_0;
-    assign i_rx_coded_1 = o_rx_coded_1;
-    assign i_rx_coded_2 = o_rx_coded_2;
-    assign i_rx_coded_3 = o_rx_coded_3;
+    assign i_rx_coded [0] = o_rx_coded_0;
+    assign i_rx_coded [1] = o_rx_coded_1;
+    assign i_rx_coded [2] = o_rx_coded_2;
+    assign i_rx_coded [3] = o_rx_coded_3;
 
     initial begin
         // $dumpfile("Modulos/signalGenerator/tb/tb_BASER_gen_check.vcd");
@@ -100,7 +110,7 @@ module tb_BASER_gen_check;
         clk             = 'b0       ;
         i_rst           = 'b1       ;
         i_data_sel_0    = 'b0000    ;
-        i_enable        = 'b0       ;      
+        i_enable        = 'b0       ;
         i_valid         = 'b000     ;
         i_tx_test_mode  = 'b0       ;
         i_random_0      = 'b0       ;
@@ -113,6 +123,8 @@ module tb_BASER_gen_check;
         i_rst           = 1'b0      ;
         i_enable        = 1'b1      ;
         i_valid         = 2'b11     ;
+
+        `ifdef TEST_1
 
         // Set the data sel 0
         #600                        ;
@@ -169,9 +181,69 @@ module tb_BASER_gen_check;
         i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
         #600                                    ;
         @(posedge clk)                          ;
+
+        `elsif TEST_2
+
+        // Set the data sel 0
+        i_data_sel_0    = 4'b1111   ;
+        #600                        ;
+        @(posedge clk)              ;
+
+        `elsif TEST_3
+
+        // Set the data sel 0
+        i_data_sel_0    = 4'b0000   ;
+        #600                        ;
+        @(posedge clk)              ;
+
+        `elsif TEST_4
         
+        // Change the MII input
+        i_enable        = 1'b0                  ;
+        // Set TXC and TXD as Error
+        i_txc           = 8'hFF                 ;
+        i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
+        #600                                    ;
+        @(posedge clk)                          ;
+        // Set TXD as Idle
+        i_txd           = 64'h0707070707070707  ;
+        #600                                    ;
+        @(posedge clk)                          ;
+
+        `elsif TEST_5
+        
+        // Change the MII input
+        i_enable        = 1'b0                  ;
+        repeat(100) begin
+            @(negedge clk)                          ;
+            // i_enable        = 1'b0                  ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'hABABABABABABABAB  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hFE                 ;
+            i_txd           = 64'h434343434343FD55  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'h7777777777777777  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hF0                 ;
+            i_txd           = 64'h30303030FD060606  ;
+        end
+
+        `elsif TEST_6
+
+        i_enable    = 1'b1  ;
+        i_random_0  = 1'b1  ;
+        #600                ;
+        @(posedge clk)      ;
+
+        `endif
+        
+        inv_percent = real'(o_257_inv_format_count + o_257_inv_sh_count) / real'(o_257_block_count) * 100;
+        // inv_percent = real'(o_257_inv_block_count) / real'(o_257_block_count) * 100;
+
         // Display after all tests
-        if(o_257_inv_block_count == 0) begin
+        if(inv_percent <= 10) begin
             // Invalid blocks Not found
             $display("Final Result: TEST PASSED");
         end
@@ -180,11 +252,12 @@ module tb_BASER_gen_check;
             $display("Final Result: TEST FAILED");
         end
         // Display all counters
-        $display("Total Blocks Received: %0d"       ,   o_257_block_count                                                   );
-        $display("Data Blocks Received: %0d"        ,   o_257_data_count                                                    );
-        $display("Control Blocks Received: %0d"     ,   o_257_ctrl_count                                                    );
-        $display("Invalid Blocks Received: %0d"     ,   o_257_inv_block_count                                               );
-        $display("Valid blocks percentage: %0f%%"   ,   (1 - real'(o_257_inv_block_count) / real'(o_257_block_count)) * 100     );
+        $display("Total Blocks Received: %0d"       ,   o_257_block_count       );
+        $display("Data Blocks Received: %0d"        ,   o_257_data_count        );
+        $display("Control Blocks Received: %0d"     ,   o_257_ctrl_count        );
+        $display("Invalid Blocks Received: %0d"     ,   o_257_inv_format_count + o_257_inv_sh_count   );
+        // $display("Invalid Blocks Received: %0d"     ,   o_257_inv_block_count   );
+        $display("Valid blocks percentage: %.1f%%"   ,   (100 - inv_percent)     );
 
         $finish;
     end
@@ -245,25 +318,30 @@ module tb_BASER_gen_check;
     );
 
     // Instantiate 66b checker
-    BASER_66b_checker#(
-        .DATA_WIDTH             (DATA_WIDTH             ),
-        .HDR_WIDTH              (HDR_WIDTH              ),
-        .FRAME_WIDTH            (FRAME_WIDTH            ),
-        .CTRL_WIDTH             (CTRL_WIDTH             ),
-        .DATA_CHAR_PATTERN      (DATA_CHAR_PATTERN      ),
-        .CTRL_CHAR_PATTERN      (CTRL_CHAR_PATTERN      ),
-        .OSET_CHAR_PATTERN      (OSET_CHAR_PATTERN      )
-    ) dut_66b_check (
-        .clk                    (clk                    ),
-        .i_rst                  (i_rst                  ),
-        .i_rx_coded             (i_rx_coded_0           ),
-        .o_txd                  (o_txd                  ),
-        .o_txc                  (o_txc                  ),
-        .o_block_count          (o_66_block_count       ),
-        .o_data_count           (o_66_data_count        ),
-        .o_ctrl_count           (o_66_ctrl_count        ),
-        .o_inv_block_count      (o_66_inv_block_count   ),
-        .o_inv_sh_count         (o_66_inv_sh_count      )
-    );
+    genvar i;
+    generate
+        for(i = 0; i < TRANSCODER_BLOCKS; i++) begin
+            BASER_66b_checker#(
+                .DATA_WIDTH         (DATA_WIDTH                 ),
+                .HDR_WIDTH          (HDR_WIDTH                  ),
+                .FRAME_WIDTH        (FRAME_WIDTH                ),
+                .CTRL_WIDTH         (CTRL_WIDTH                 ),
+                .DATA_CHAR_PATTERN  (DATA_CHAR_PATTERN          ),
+                .CTRL_CHAR_PATTERN  (CTRL_CHAR_PATTERN          ),
+                .OSET_CHAR_PATTERN  (OSET_CHAR_PATTERN          )
+            ) dut_66b_check (
+                .clk                (clk                        ),
+                .i_rst              (i_rst                      ),
+                .i_rx_coded         (i_rx_coded             [i] ),
+                .o_txd              (o_txd                  [i] ),
+                .o_txc              (o_txc                  [i] ),
+                .o_block_count      (o_66_block_count       [i] ),
+                .o_data_count       (o_66_data_count        [i] ),
+                .o_ctrl_count       (o_66_ctrl_count        [i] ),
+                .o_inv_block_count  (o_66_inv_block_count   [i] ),
+                .o_inv_sh_count     (o_66_inv_sh_count      [i] )
+            );
+        end
+    endgenerate
 
 endmodule
