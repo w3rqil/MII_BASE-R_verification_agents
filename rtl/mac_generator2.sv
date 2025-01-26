@@ -22,7 +22,7 @@ module mac_frame_generator #(
                     FIXED_PAYLOAD   = 8'd1,
                     NO_PADDING      = 8'd2;
 
-    localparam PAYLOAD_SIZE = (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                                    ;
+    //localparam PAYLOAD_SIZE = (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                                    ;
     // State machine states
     localparam [2:0]
         IDLE            = 3'd0                                                                                              ,
@@ -35,28 +35,21 @@ module mac_frame_generator #(
     localparam [31:0] POLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc    
 
     reg [2:0] state, next_state                                                                                             ;
-    reg [PAYLOAD_SIZE*8 - 1:0] payload_reg; 
+    reg [PAYLOAD_MAX_SIZE*8 - 1:0] payload_reg; 
     // Internal registers                       
     reg [15:0] byte_counter                                                                                                 ;   // Tracks bytes sent
     logic [111:0] header_shift_reg                                                                                          ;   // Shift register for sending preamble + header (192 bits)
-    logic [63:0] payload_shift_reg                                                                                          ;   // Shift register for 64-bit payload output
+    //ogic [63:0] payload_shift_reg                                                                                          ;   // Shift register for 64-bit payload output
     reg [15:0] payload_index                                                                                                ;   // Index for reading payload bytes
     reg [15:0] padding_counter                                                                                              ;   // Counter for adding padding if payload < 46 bytes
-    logic [(PAYLOAD_SIZE)*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS 
+    logic [PAYLOAD_MAX_SIZE*8 + 112 -1:0] gen_shift_reg;                 //! register for PAYLOAD + ADDRESS 
     // Constants for Ethernet frame                                                             
     // localparam [63:0] PREAMBLE_SFD = 64'h55555555555555D5                                                                   ; // Preamble (7 bytes) + SFD (1 byte)
     localparam [63:0] PREAMBLE_SFD = 64'hD555555555555555                                                                   ; // Preamble (7 bytes) + SFD (1 byte)
     localparam MIN_PAYLOAD_SIZE = 46                                                                                        ; // Minimum Ethernet payload size
     localparam FRAME_SIZE = 64                                                                                              ; // Minimum Ethernet frame size (in bytes)
 
-    // // Sequential logic: State transitions
-    // always_ff @(posedge clk or negedge i_rst_n) begin
-    //     if (!i_rst_n) begin
-    //         state <= IDLE                                                                           ;
-    //     end else begin
-    //         state <= next_state                                                                     ;
-    //     end
-    // end
+
     integer min_size_flag;
     integer size;
     integer i,j;
@@ -70,34 +63,41 @@ module mac_frame_generator #(
     reg [31:0] crc, next_crc                                                                                                ;
     reg [63:0] data_xor                                                                                                     ;
 
+    logic [15:0] payload_size;
+    assign payload_size = (i_payload_length < MIN_PAYLOAD_SIZE) ? MIN_PAYLOAD_SIZE : i_payload_length;
+
+
     always_comb begin: size_block   
 
         if(i_eth_type < 46) size = 46                                                                                       ;
         else                size = i_eth_type                                                                               ;
     end
-
+    integer i4test =0;
+    always_comb begin
+        i4test = (i4test == 10) ? 0: i4test + 1;
+    end
     always_comb begin
         if(i_start) begin
             next_done = 1'b0                                                                                                ; //lower done flag
             // Prepare header: Destination + Source + EtherType 
             // header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
-            header_shift_reg = {i_eth_type, i_src_address, i_dest_address}                                                  ;
+            header_shift_reg = {i_payload_length, i_src_address, i_dest_address}                                                  ;
             //general_shift_reg <= {header_shift_reg, }
     
             //prepare payload
             if(!(i_interrupt == NO_PADDING)) begin
-                for(i=0; i<PAYLOAD_SIZE; i= i+1) begin
+                for(i=0; i<PAYLOAD_MAX_SIZE; i= i+1) begin
                         $display("PADDING");
                         
-                        payload_reg[(i*8) +:8]  = (i<PAYLOAD_LENGTH) ? i_payload[i] : 8'h00                                        ;
-                        $display("BYTE %h; I VALIE: %d", (i<PAYLOAD_LENGTH) ? i_payload[i] : 8'h00, i);
+                        payload_reg[(i*8) +:8]  = (i<i_payload_length) ? i_payload[i] : 8'h00                                        ;
+                        $display("BYTE %h; I VALUE: %d", (i<i_payload_length) ? i_payload[i] : 8'h00, i);
                         if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
                             payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN                                                      ;
                         end
                 end
             end else begin // no padding interruption
                 $display("NO_PADDING");
-                for (i=0; i<PAYLOAD_LENGTH; i=i+1) begin
+                for (i=0; i<i_payload_length; i=i+1) begin
                     payload_reg[(i*8) +:8]  = i_payload[i]                                                                     ;
     
                         if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
@@ -106,22 +106,12 @@ module mac_frame_generator #(
                 end
             end
 
-            // if(i_eth_type < 46 ) begin // padding if needed
-            //     for(i= i_eth_type; i <46; i= i+1) begin
-            //         payload_reg[(i*8) +:8]  = 8'h00;
-            //         if(i_interrupt == FIXED_PAYLOAD) begin //interrupt to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
-            //             payload_reg[(i*8) +:8]  = PAYLOAD_CHAR_PATTERN;
-            //         end
-            //     end
-            // end
-    
-    
             
             gen_shift_reg = {payload_reg, header_shift_reg}                                                                 ; 
             
             //next_crc = 32'hFFFFFFFF;
             //! CRC32 calculation
-            for(i=0; i<(PAYLOAD_LENGTH*8 + 112 ); i= i+64) begin
+            for(i=0; i<(i_payload_length*8 + 112 ); i= i+64) begin
                 //if((i<= i_eth_type*8)) begin 
                     
                     next_frame_out = gen_shift_reg [(i) + 63 -: 64]                                                         ;
@@ -154,7 +144,14 @@ module mac_frame_generator #(
         end
         
 
-        
+        for (i=0; i<= PAYLOAD_MAX_SIZE; i++) begin
+            if(i <= (i_payload_length + 112/8)) begin
+            gen_shift_reg[i*8 +:8] = gen_shift_reg[i*8 +:8];
+            end else begin
+                gen_shift_reg[i*8 +:32] = next_crc;
+                break;
+            end
+        end
     end
 
     
@@ -171,7 +168,7 @@ module mac_frame_generator #(
             payload_index       <= 16'd0                                                                                    ;
             padding_counter     <= 16'd0                                                                                    ;
             header_shift_reg    <= 112'b0                                                                                   ;
-            payload_shift_reg   <= 64'b0                                                                                    ;
+            //payload_shift_reg   <= 64'b0                                                                                    ;
             //o_register <= 0;  
         end else begin                                                      
 
@@ -190,8 +187,8 @@ module mac_frame_generator #(
         end
     end
 
-    assign o_register = (i_interrupt == NO_PADDING)? 
-                                                    {next_crc, gen_shift_reg[(PAYLOAD_LENGTH)*8 + 112 -1:0], PREAMBLE_SFD} :
-                                                    {next_crc, gen_shift_reg, PREAMBLE_SFD};
-
+    assign o_register = 
+                                                    {gen_shift_reg, PREAMBLE_SFD};
+//(i_interrupt == NO_PADDING)? 
+//                                                    {next_crc, gen_shift_reg[(PAYLOAD_LENGTH)*8 + 112 -1:0], PREAMBLE_SFD} :
 endmodule
