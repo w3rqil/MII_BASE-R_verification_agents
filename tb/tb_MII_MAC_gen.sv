@@ -3,9 +3,9 @@
 module tb_mac_mii_top;
 
     // Parameters
-    localparam PAYLOAD_LENGTH = 50;
+    localparam PAYLOAD_LENGTH = 500;
     localparam CLK_PERIOD = 10;  // 100 MHz clock
-    localparam PAYLOAD_MAX_SIZE = 64;
+    localparam PAYLOAD_MAX_SIZE = 1500;
 
     // Signals
     reg clk;
@@ -52,7 +52,7 @@ module tb_mac_mii_top;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
         i_eth_type = 16'h32;              // IP protocol
-        i_payload_length = PAYLOAD_LENGTH;
+        i_payload_length = 49;
         i_interrupt = 8'd0;                // No interrupt
         
         // // Initialize payload data
@@ -73,12 +73,12 @@ module tb_mac_mii_top;
         #20;
         i_rst_n = 1;
 
-        preload_payload(50, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
+        preload_payload(500, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                               8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE}); // Preload payload
-        i_payload_length = 8; // Payload length = 6 bytes
+        // i_payload_length = 8; // Payload length = 6 bytes
         i_start = 1; // Trigger frame generation
         repeat (70)@(posedge clk);
         i_start = 0; // Deassert start
@@ -93,6 +93,24 @@ module tb_mac_mii_top;
         // Wait for frame to complete
         repeat (10) @(posedge clk);
 
+        i_payload_length = 8;
+        
+        i_start = 1; // Trigger frame generation
+        repeat (70)@(posedge clk);
+        i_start = 0; // Deassert start
+
+        // Wait for frame to complete
+        repeat (10) @(posedge clk);
+        
+        i_payload_length = 500;
+        
+        i_start = 1; // Trigger frame generation
+        repeat (100)@(posedge clk);
+        i_start = 0; // Deassert start
+
+        // Wait for frame to complete
+        repeat (10) @(posedge clk);
+        
         // End simulation
         $stop;
     end
@@ -108,7 +126,7 @@ module tb_mac_mii_top;
     // Task to preload the payload array
 task preload_payload(input int len, input byte payload_data[]);
 for (int i = 0; i < len; i++) begin
-    i_payload[i] = payload_data[i];
+    i_payload[i] = payload_data[i % 50];
 end
 endtask
 
