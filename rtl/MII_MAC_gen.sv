@@ -64,6 +64,7 @@ module mac_mii_top #(
         .i_mii_tx_d(mac_frame_out),    // Frame data from MAC
         .i_register(register),
         .i_interrupt(i_interrupt),
+        .i_payload_length(i_payload_length),
         .o_txValid (o_txValid),
         .o_mii_tx_d(mii_tx_data),      // Unused in this version, processed internally
         .o_control(mii_control)        // Control signal from MII_gen
