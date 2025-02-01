@@ -11,10 +11,16 @@
     TEST_2: todo datos
     TEST_3: todo control
     TEST_4: todo Error e Idle
-    TEST_5: varios patrones en i_txd
-    TEST_6: patrones aleatorios
+    TEST_5: varios patrones en i_txd, algunos erroneos
+    TEST_6: varios patrones en i_txd, todos validos
+    TEST_7: patrones aleatorios
 */
-`define TEST_6
+`define TEST_5
+
+/*
+    INTERRUPT: muchos bloques invalidos interrumpen la simulacion y fallan el test
+*/
+// `define INTERRUPT
 
 module tb_BASER_gen_check;
 
@@ -52,7 +58,7 @@ module tb_BASER_gen_check;
     logic [DATA_WIDTH        - 1 : 0]   i_txd                           ;   /* Input data                             */
     logic [CTRL_WIDTH        - 1 : 0]   i_txc                           ;   /* Input control byte                     */
     logic [TRANSCODER_BLOCKS - 1 : 0]   i_data_sel_0                    ;   /* Data selector                          */
-    logic [                    1 : 0]   i_valid                         ;   /* Input to enable frame generation       */    
+    logic [                    1 : 0]   i_valid_gen                     ;   /* Input to enable frame generation       */    
     logic                               i_enable                        ;   /* Flag to enable frame generation        */
     logic                               i_random_0                      ;   /* Flag to enable random frame generation */
     logic                               i_tx_test_mode                  ;   /* Flag to enable TX test mode            */
@@ -60,6 +66,7 @@ module tb_BASER_gen_check;
     logic [TC_WIDTH          - 1 : 0]   i_rx_xcoded                     ;   // Received data
     // 66b Checker
     logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded      [TRANSCODER_BLOCKS-1 : 0];   //64b blocks
+    logic                               i_valid_check                   ;   // Enable check process. If 0, the outputs don't change
 
     /*
     *---------------------OUTPUTS------------------------
@@ -91,6 +98,15 @@ module tb_BASER_gen_check;
     logic [                   31 : 0]   o_66_inv_block_count    [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of invalid 66b blocks
     logic [                   31 : 0]   o_66_inv_sh_count       [TRANSCODER_BLOCKS-1 : 0]        ;   // Total number of 66b blocks with invalid sync header
 
+    
+    /*
+    *---------------------INTERRUPT------------------------
+    */
+    // Counter register
+    logic [31:0] prev_257_inv_block_count;
+    // State counter 
+    integer state_count;
+
     // Invalid blocks percentage
     real inv_percent;
 
@@ -104,81 +120,181 @@ module tb_BASER_gen_check;
     assign i_rx_coded [2] = o_rx_coded_2;
     assign i_rx_coded [3] = o_rx_coded_3;
 
+    always @(posedge clk) begin
+        // MII log
+        $display("%0t\t\t%16h\t\t%16h\t\t%16h\t\t%16h\t\t%16h", 
+                $time, i_txd, o_txd[0], o_txd[1], o_txd[2], o_txd[3]);
+
+        `ifdef INTERRUPT
+
+        // Simulation interrupt
+        if((o_257_inv_format_count + o_257_inv_sh_count) == prev_257_inv_block_count) begin
+            state_count <= 'd0;
+        end
+        else if(state_count < 100) begin
+            state_count <= state_count + 'd1;
+        end
+        else begin
+            $display("Error: TEST FAILED. Too many consecutive invalid blocks.");
+            // Display all counters
+            $display("Total Blocks Received: %0d"       ,   o_257_block_count       );
+            $display("Data Blocks Received: %0d"        ,   o_257_data_count        );
+            $display("Control Blocks Received: %0d"     ,   o_257_ctrl_count        );
+            $display("Invalid Blocks Received: %0d"     ,   o_257_inv_format_count + o_257_inv_sh_count   );
+
+            $finish;
+        end
+        prev_257_inv_block_count <= o_257_inv_format_count + o_257_inv_sh_count;
+
+        `endif
+
+    end
+
     initial begin
         // $dumpfile("Modulos/signalGenerator/tb/tb_BASER_gen_check.vcd");
         // $dumpvars();
+
+        // MII log
+        $display("Time\t\tTXD input\t\t\t\tTXD output (0)\t\t\tTXD output (1)\t\t\tTXD output (2)\t\t\tTXD output (3)");
+
         clk             = 'b0       ;
         i_rst           = 'b1       ;
         i_data_sel_0    = 'b0000    ;
         i_enable        = 'b0       ;
-        i_valid         = 'b000     ;
+        i_valid_gen     = 'b000     ;
+        i_valid_check   = 'b0       ;
         i_tx_test_mode  = 'b0       ;
         i_random_0      = 'b0       ;
         i_txd           = 'b0       ;
         i_txc           = 'b0       ;
+
+        state_count = '0;
 
         // Set the enable and desactive the reset
         #100                        ;
         @(posedge clk)              ;
         i_rst           = 1'b0      ;
         i_enable        = 1'b1      ;
-        i_valid         = 2'b11     ;
+        i_valid_gen     = 2'b11     ;
+        
+        // // MII log
+        // $monitor("%0t\t\t%16h\t\t%16h\t\t%16h\t\t%16h\t\t%16h", 
+        //         $time, i_txd, o_txd[0], o_txd[1], o_txd[2], o_txd[3]);
 
         `ifdef TEST_1
 
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+        #600                        ;
+        @(posedge clk)              ;
+
         // Set the data sel 0
-        #600                        ;
-        @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b0001   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b0010   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b0011   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b0100   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b1000   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
+        i_valid_check   = 1'b0      ;
         i_data_sel_0    = 4'b1111   ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
 
         // Change the MII input
+        i_valid_check   = 1'b0                  ;
         i_enable        = 1'b0                  ;
         i_txc           = 8'h00                 ;
         i_txd           = 64'hFFFFFFFFFFFFFFFF  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txd           = 64'hAAAAAAAAAAAAAAAA  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'hFF                 ;
         i_txd           = 64'h07070707070707FD  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'h01                 ;
         i_txd           = 64'hAAAAAAAAAAAAAAFB  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'h00                 ;
         i_txd           = 64'hAAAAAAAAAAAAAAAA  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'hFC                 ;
         i_txd           = 64'h0707070707FDAAAA  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'hFF                 ;
         i_txd           = 64'h0707070707070707  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
+        i_valid_check   = 1'b0                  ;
         i_txc           = 8'hFF                 ;
         i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
 
@@ -186,6 +302,10 @@ module tb_BASER_gen_check;
 
         // Set the data sel 0
         i_data_sel_0    = 4'b1111   ;
+        i_valid_check   = 1'b0      ;
+        repeat(3) @(posedge clk)    ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
 
@@ -193,6 +313,10 @@ module tb_BASER_gen_check;
 
         // Set the data sel 0
         i_data_sel_0    = 4'b0000   ;
+        i_valid_check   = 1'b0      ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
         #600                        ;
         @(posedge clk)              ;
 
@@ -203,20 +327,28 @@ module tb_BASER_gen_check;
         // Set TXC and TXD as Error
         i_txc           = 8'hFF                 ;
         i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
+        i_valid_check   = 1'b0                  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
         // Set TXD as Idle
         i_txd           = 64'h0707070707070707  ;
+        i_valid_check   = 1'b0                  ;
+        repeat(15) @(posedge clk)               ;
+        i_valid_check   = 1'b1                  ;
+
         #600                                    ;
         @(posedge clk)                          ;
 
         `elsif TEST_5
         
         // Change the MII input
-        i_enable        = 1'b0                  ;
-        repeat(100) begin
+        i_enable        = 1'b0                      ;
+        i_valid_check   = 1'b0                      ;
+        repeat(2) begin
             @(negedge clk)                          ;
-            // i_enable        = 1'b0                  ;
             i_txc           = 8'h00                 ;
             i_txd           = 64'hABABABABABABABAB  ;
             @(negedge clk)                          ;
@@ -230,12 +362,54 @@ module tb_BASER_gen_check;
             i_txd           = 64'h30303030FD060606  ;
         end
 
+        @(posedge clk)                              ;
+        i_valid_check   = 1'b1                      ;
+        
+        repeat(100) begin
+            @(negedge clk)                          ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'hABABABABABABABAB  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hFE                 ;
+            i_txd           = 64'h434343434343FD55  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'h7777777777777777  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hF0                 ;
+            i_txd           = 64'h30303030FD060606  ;
+        end
+        
         `elsif TEST_6
+        
+        // Change the MII input
+        i_enable        = 1'b0                  ;
+        repeat(100) begin
+            @(negedge clk)                          ;
+            // i_enable        = 1'b0                  ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'hABABABABABABABAB  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hFE                 ;
+            i_txd           = 64'h070707070707FD55  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'h00                 ;
+            i_txd           = 64'h7777777777777777  ;
+            @(negedge clk)                          ;
+            i_txc           = 8'hF8                 ;
+            i_txd           = 64'h07070707FD060606  ;
+        end
 
-        i_enable    = 1'b1  ;
-        i_random_0  = 1'b1  ;
-        #600                ;
-        @(posedge clk)      ;
+        `elsif TEST_7
+
+        i_enable    = 1'b1          ;
+        i_random_0  = 1'b1          ;
+        i_valid_check   = 1'b0      ;
+        repeat(15) @(posedge clk)   ;
+        i_valid_check   = 1'b1      ;
+
+        #600                        ;
+        @(posedge clk)              ;
 
         `endif
         
@@ -281,7 +455,7 @@ module tb_BASER_gen_check;
         .i_txd                  (i_txd                  ),
         .i_txc                  (i_txc                  ),
         .i_data_sel_0           (i_data_sel_0           ),
-        .i_valid                (i_valid                ),
+        .i_valid                (i_valid_gen            ),
         .i_enable               (i_enable               ),
         .i_random_0             (i_random_0             ),
         .i_tx_test_mode         (i_tx_test_mode         ),
@@ -303,6 +477,7 @@ module tb_BASER_gen_check;
     ) dut_257b_check (
         .clk                    (clk                    ),
         .i_rst                  (i_rst                  ),
+        .i_valid                (i_valid_check          ),
         .i_rx_xcoded            (i_rx_xcoded            ),
         .o_rx_coded_0           (o_rx_coded_0           ),
         .o_rx_coded_1           (o_rx_coded_1           ),
@@ -332,6 +507,7 @@ module tb_BASER_gen_check;
             ) dut_66b_check (
                 .clk                (clk                        ),
                 .i_rst              (i_rst                      ),
+                .i_valid            (i_valid_check              ),
                 .i_rx_coded         (i_rx_coded             [i] ),
                 .o_txd              (o_txd                  [i] ),
                 .o_txc              (o_txc                  [i] ),
@@ -344,4 +520,45 @@ module tb_BASER_gen_check;
         end
     endgenerate
 
+    // // Instantiate checker Top
+    // BASER_top_checker #(
+    //     .DATA_WIDTH         (DATA_WIDTH         ),
+    //     .HDR_WIDTH          (HDR_WIDTH          ),
+    //     .FRAME_WIDTH        (FRAME_WIDTH        ),
+    //     .TC_DATA_WIDTH      (TC_DATA_WIDTH      ),
+    //     .TC_HDR_WIDTH       (TC_HDR_WIDTH       ),
+    //     .TC_WIDTH           (TC_WIDTH           ),
+    //     .CTRL_WIDTH         (CTRL_WIDTH         ),
+    //     .TRANSCODER_BLOCKS  (TRANSCODER_BLOCKS  ),
+    //     .DATA_CHAR_PATTERN  (DATA_CHAR_PATTERN  ),
+    //     .CTRL_CHAR_PATTERN  (CTRL_CHAR_PATTERN  ),
+    //     .OSET_CHAR_PATTERN  (OSET_CHAR_PATTERN  )
+    // ) dut_check (
+    //     .clk                    (clk                    ),
+    //     .i_rst                  (i_rst                  ),
+        
+    //     // 257b checker
+    //     .i_rx_xcoded            (i_rx_xcoded            ),
+    //     .o_rx_coded_0           (o_rx_coded_0           ),
+    //     .o_rx_coded_1           (o_rx_coded_1           ),
+    //     .o_rx_coded_2           (o_rx_coded_2           ),
+    //     .o_rx_coded_3           (o_rx_coded_3           ),
+    //     .o_257_block_count      (o_257_block_count      ),
+    //     .o_257_data_count       (o_257_data_count       ),
+    //     .o_257_ctrl_count       (o_257_ctrl_count       ),
+    //     .o_257_inv_block_count  (o_257_inv_block_count  ),
+    //     .o_257_inv_pattern_count(o_257_inv_pattern_count),
+    //     .o_257_inv_format_count (o_257_inv_format_count ),
+    //     .o_257_inv_sh_count     (o_257_inv_sh_count     ),
+        
+    //     // 66b checker
+    //     .i_rx_coded             (i_rx_coded             ),
+    //     .o_txd                  (o_txd                  ),
+    //     .o_txc                  (o_txc                  ),
+    //     .o_66_block_count       (o_66_block_count       ),
+    //     .o_66_data_count        (o_66_data_count        ),
+    //     .o_66_ctrl_count        (o_66_ctrl_count        ),
+    //     .o_66_inv_block_count   (o_66_inv_block_count   ),
+    //     .o_66_inv_sh_count      (o_66_inv_sh_count      )
+    // );
 endmodule

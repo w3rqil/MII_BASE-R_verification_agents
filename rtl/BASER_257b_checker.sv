@@ -41,6 +41,7 @@ module BASER_257b_checker
     */
     input  logic                        clk                 ,   // Clock input
     input  logic                        i_rst               ,   // Asynchronous reset
+    input  logic                        i_valid             ,   // Enable check process. If 0, the outputs don't change
     input  logic    [TC_WIDTH-1:0]      i_rx_xcoded         ,   // Received 257b block
     /*
     *--------OUTPUTS--------
@@ -516,6 +517,20 @@ module BASER_257b_checker
             inv_pattern_count       <= '0;
             inv_format_count        <= '0;
             inv_sh_count            <= '0;
+        end
+        else if(!i_valid) begin
+            rx_coded_0              <= rx_coded_0           ;
+            rx_coded_1              <= rx_coded_1           ;
+            rx_coded_2              <= rx_coded_2           ;
+            rx_coded_3              <= rx_coded_3           ;
+            rx_payloads             <= rx_payloads          ;
+            block_count             <= block_count          ;
+            data_count              <= data_count           ;
+            ctrl_count              <= ctrl_count           ;
+            inv_block_count         <= inv_block_count      ;
+            inv_pattern_count       <= inv_pattern_count    ;
+            inv_format_count        <= inv_format_count     ;
+            inv_sh_count            <= inv_sh_count         ;
         end
         else begin
             rx_coded_0              <= next_rx_coded_0          ;

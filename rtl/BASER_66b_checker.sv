@@ -34,7 +34,8 @@ module BASER_66b_checker
     */
     input  logic                        clk                         ,   // Clock input
     input  logic                        i_rst                       ,   // Asynchronous reset
-    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded                ,   // 64b block
+    input  logic                        i_valid                     ,   // Enable check process. If 0, the outputs don't change
+    input  logic    [FRAME_WIDTH-1:0]   i_rx_coded                  ,   // 64b block
     /*
     *--------OUTPUTS--------
     */
@@ -303,14 +304,24 @@ always @(posedge clk or posedge i_rst) begin
         // o_txd <= {{7{8'h00}}, MII_SEQ};
         // o_txc <= 8'hF1; // Mismo valor que el generador
 
-        txd <= '0;
-        txc <= '0;
+        txd             <= '0;
+        txc             <= '0;
 
-        block_count <= '0;
-        data_count <= '0;
-        ctrl_count <= '0;
+        block_count     <= '0;
+        data_count      <= '0;
+        ctrl_count      <= '0;
         inv_block_count <= '0;
-        inv_sh_count <= '0;
+        inv_sh_count    <= '0;
+    end
+    else if(!i_valid) begin
+        txd             <= txd              ;
+        txc             <= txc              ;
+
+        block_count     <= block_count      ;
+        data_count      <= data_count       ;
+        ctrl_count      <= ctrl_count       ;
+        inv_block_count <= inv_block_count  ;
+        inv_sh_count    <= inv_sh_count     ;
     end
     else begin
         // // if(i_rx_coded(i) = E || i_rx_coded(i-1) = E) -> send EBLOCK_R
@@ -322,16 +333,16 @@ always @(posedge clk or posedge i_rst) begin
         //     txd <= next_txd;
         //     txc <= next_txc;
         // end
-        txd <= next_txd;
-        txc <= next_txc;
+        txd             <= next_txd             ;
+        txc             <= next_txc             ;
 
-        rx_type <= next_rx_type;
+        // rx_type <= next_rx_type;
 
-        block_count <= next_block_count;
-        data_count <= next_data_count;
-        ctrl_count <= next_ctrl_count;
-        inv_block_count <= next_inv_block_count;
-        inv_sh_count <= next_inv_sh_count;
+        block_count     <= next_block_count     ;
+        data_count      <= next_data_count      ;
+        ctrl_count      <= next_ctrl_count      ;
+        inv_block_count <= next_inv_block_count ;
+        inv_sh_count    <= next_inv_sh_count    ;
     end
 end
 
