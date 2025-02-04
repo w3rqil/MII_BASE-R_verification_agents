@@ -14,8 +14,9 @@
     TEST_5: varios patrones en i_txd, algunos erroneos
     TEST_6: varios patrones en i_txd, todos validos
     TEST_7: patrones aleatorios
+    TEST_8: ejemplo de Idles constantes, del anexo 175A IEEE802.3 (descrambleado)
 */
-`define TEST_5
+`define TEST_8
 
 /*
     INTERRUPT: muchos bloques invalidos interrumpen la simulacion y fallan el test
@@ -410,6 +411,19 @@ module tb_BASER_gen_check;
 
         #600                        ;
         @(posedge clk)              ;
+
+        `elsif TEST_8
+
+        i_enable        = 1'b0                                                                          ;
+        i_valid_gen     = 2'b0                                                                          ;
+        // 4 bloques de Idle
+        i_rx_xcoded     = 257'h0000000000000003c000000000000003c000000000000003c00000000000001c0        ;
+
+        #50                                                                                             ;
+        @(posedge clk)                                                                                  ;
+        i_valid_check   = 1'b1                                                                          ;
+
+        repeat(35) @(posedge clk);
 
         `endif
         
