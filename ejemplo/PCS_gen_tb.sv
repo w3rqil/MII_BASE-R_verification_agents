@@ -142,29 +142,9 @@ initial begin
     // Desactivate the test mode and change the inputs 
     i_tx_test_mode  = 1'b0                                                                                                                                                                                                                                                                  ;
     i_enable        = 1'b0                                                                                                                                                                                                                                                                  ;
-    i_txc           = 8'h00;
-    i_txd           = 64'hFFFFFFFFFFFFFFFF;
-    #300;
-    i_txd           = 64'hAAAAAAAAAAAAAAAA;
-    #300;
-    i_txd           = 64'h5555555555555555;
-    #300;
-    i_txc           = 8'hFF;
-    i_txd           = 64'h07070707070707FD;
-    #300;
-    i_txc           = 8'h01;
-    i_txd           = 64'hAAAAAAAAAAAAAAFB;
-    #300;
-    i_txc           = 8'h00;
-    i_txd           = 64'hAAAAAAAAAAAAAAAA;
-    #300;
-    i_txc           = 8'hFC;
-    i_txd           = 64'h0707070707FDAAAA;
-    #300;
-    i_txc           = 8'hFF;
-    i_txd           = 64'h0707070707070707;
-    #300;
-
+    i_txc           = 8'hFF                                                                                                                                                                                                                                                                 ;
+    i_txd           = 64'hFEFEFEFEFEFEFEFE                                                                                                                                                                                                                                                 ;
+    #1000                                                                                                                                                                                                                                                                                    ;
     $display("o_frame_0: %h", o_frame_0)                                                                                                                                                                                                                                                    ; 
     $display("o_frame_0: %b", o_frame_0)                                                                                                                                                                                                                                                    ;
     $display("o_frame_1: %h", o_frame_1)                                                                                                                                                                                                                                                    ; 
