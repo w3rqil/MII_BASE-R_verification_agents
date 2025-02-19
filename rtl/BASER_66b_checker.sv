@@ -60,15 +60,6 @@ localparam MII_SEQ   = 8'h9C;
 localparam CTRL_IDLE  = 7'h00;
 localparam CTRL_ERROR = 7'h1E;
 
-// Block Type identification
-localparam C_TYPE = 3'd0;
-localparam S_TYPE = 3'd1;
-localparam T_TYPE = 3'd2;
-localparam D_TYPE = 3'd3;
-localparam E_TYPE = 3'd4;
-logic [2:0] rx_type;
-logic [2:0] next_rx_type;
-
 // MII Data block
 logic [DATA_WIDTH-1:0] txd;
 logic [DATA_WIDTH-1:0] next_txd;
@@ -93,6 +84,9 @@ logic [31:0] next_inv_block_count   ;
 logic [31:0] inv_sh_count           ;
 logic [31:0] next_inv_sh_count      ;
 
+// 66b checker valid register
+logic valid;
+
 always @(*) begin
     next_block_count = block_count + 1'b1;
     next_data_count = data_count;
@@ -101,7 +95,16 @@ always @(*) begin
     next_inv_sh_count = inv_sh_count;
 
     // 66b block formats
-    if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b01) begin
+    if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b10) begin
+
+        // Data block
+        next_data_count = data_count + 1'b1;
+
+        next_txd = i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH];
+        next_txc = 8'h00;
+    end
+    else if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b01) begin
+
         // Control block
         next_ctrl_count = ctrl_count + 1'b1;
 
@@ -120,21 +123,18 @@ always @(*) begin
                 end
 
                 next_txc = 8'hFF;
-                // next_rx_type = C_TYPE;
             end
     
             // D7 D6 D5 D4 D3 D2 D1 S0
             8'h78: begin
                 next_txd = {i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8], MII_START};
                 next_txc = 8'h01;
-                // next_rx_type = S_TYPE;
             end
     
             // Z7 Z6 Z5 Z4 D3 D2 D1 O0
             8'h4B: begin
                 next_txd = {32'h0000_0000, i_rx_coded[HDR_WIDTH + 8 +: 24], MII_SEQ};
                 next_txc = 8'hF1;
-                // next_rx_type = C_TYPE;
             end
     
             // C7 C6 C5 C4 C3 C2 C1 T0
@@ -152,7 +152,6 @@ always @(*) begin
                 end
 
                 next_txc = 8'hFF;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 C6 C5 C4 C3 C2 T1 D0
@@ -170,7 +169,6 @@ always @(*) begin
                 end
 
                 next_txc = 8'hFE;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 C6 C5 C4 C3 T2 D1 D0
@@ -188,7 +186,6 @@ always @(*) begin
                 end
                 
                 next_txc = 8'hFC;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 C6 C5 C4 T3 D2 D1 D0
@@ -206,7 +203,6 @@ always @(*) begin
                 end
                 
                 next_txc = 8'hF8;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 C6 C5 T4 D3 D2 D1 D0
@@ -224,7 +220,6 @@ always @(*) begin
                 end
                 
                 next_txc = 8'hF0;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 C6 T5 D4 D3 D2 D1 D0
@@ -242,7 +237,6 @@ always @(*) begin
                 end
 
                 next_txc = 8'hE0;
-                // next_rx_type = T_TYPE;
             end
     
             // C7 T6 D5 D4 D3 D2 D1 D0
@@ -252,7 +246,7 @@ always @(*) begin
                 if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 56] == CTRL_IDLE) begin
                     next_txd[DATA_WIDTH-1 : 56] = MII_IDLE;
                 end
-                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 27] == CTRL_ERROR) begin
+                else if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 56] == CTRL_ERROR) begin
                     next_txd[DATA_WIDTH-1 : 56] = MII_ERROR;
                 end
                 else begin
@@ -260,50 +254,42 @@ always @(*) begin
                 end
 
                 next_txc = 8'hC0;
-                // next_rx_type = T_TYPE;
             end
     
             // T7 D6 D5 D4 D3 D2 D1 D0
             8'hFF: begin
                 next_txd = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 56]};
                 next_txc = 8'h80;
-                // next_rx_type = T_TYPE;
             end
     
             // Invalid format
             default: begin
+                // next_inv_format_count = inv_format_count + 1'b1;
+
                 next_txd = {8{MII_ERROR}};
                 next_txc = 8'hFF;
-                // next_rx_type = E_TYPE;
             end
         endcase
-        
-    end
-    else if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b10) begin
-        // Data block
-        next_data_count = data_count + 1'b1;
 
-        next_txd = i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH];
-        next_txc = 8'h00;
-        // next_rx_type = D_TYPE;
     end
     else begin
+
         // Invalid sync header
         next_inv_block_count = inv_block_count + 1'b1;
         next_inv_sh_count = inv_sh_count + 1'b1;
 
         next_txd = {8{MII_ERROR}};
         next_txc = 8'hFF;
-        // next_rx_type = E_TYPE;
     end
 end
 
 always @(posedge clk or posedge i_rst) begin
-    if(i_rst) begin
-        // // Send Local Fault ordered set
-        // o_txd <= {{7{8'h00}}, MII_SEQ};
-        // o_txc <= 8'hF1; // Mismo valor que el generador
+    if(i_valid)
+        valid <= 1'b1;
+    else
+        valid <= 1'b0;
 
+    if(i_rst) begin
         txd             <= '0;
         txc             <= '0;
 
@@ -313,7 +299,7 @@ always @(posedge clk or posedge i_rst) begin
         inv_block_count <= '0;
         inv_sh_count    <= '0;
     end
-    else if(!i_valid) begin
+    else if(!valid) begin
         txd             <= txd              ;
         txc             <= txc              ;
 
@@ -324,19 +310,8 @@ always @(posedge clk or posedge i_rst) begin
         inv_sh_count    <= inv_sh_count     ;
     end
     else begin
-        // // if(i_rx_coded(i) = E || i_rx_coded(i-1) = E) -> send EBLOCK_R
-        // if(rx_type == E_TYPE || next_rx_type == E_TYPE) begin
-        //     txd <= {8{MII_ERROR}};
-        //     txc <= 8'hFF;
-        // end
-        // else begin
-        //     txd <= next_txd;
-        //     txc <= next_txc;
-        // end
         txd             <= next_txd             ;
         txc             <= next_txc             ;
-
-        // rx_type <= next_rx_type;
 
         block_count     <= next_block_count     ;
         data_count      <= next_data_count      ;

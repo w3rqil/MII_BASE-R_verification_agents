@@ -459,7 +459,7 @@ module BASER_257b_checker
                 next_rx_coded_2[1:0] = {i_rx_xcoded[3], ~i_rx_xcoded[3]};
                 next_rx_coded_3[1:0] = {i_rx_xcoded[4], ~i_rx_xcoded[4]};
 
-                // Invalidate sync header if theres an invalid block type 
+                // Invalidate sync header of the first 64b control block if theres an invalid block type 
                 case (inv_format_pos)
                     3'd0:
                         next_rx_coded_0[1] = 1'b1;
