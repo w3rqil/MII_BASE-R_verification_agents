@@ -16,7 +16,7 @@
     TEST_7: patrones aleatorios
     TEST_8: ejemplo de Idles constantes, del anexo 175A IEEE802.3 (descrambleado)
 */
-`define TEST_2
+`define TEST_5
 
 /*
     INTERRUPT: muchos bloques invalidos interrumpen la simulacion y fallan el test
@@ -85,8 +85,6 @@ module tb_BASER_gen_check;
     logic [                   31 : 0]   o_257_data_count                            ;   // Total number of 257b blocks with all 64b data block received
     logic [                   31 : 0]   o_257_ctrl_count                            ;   // Total number of 257b blocks with at least one 64b control block received
     logic [                   31 : 0]   o_257_inv_block_count                       ;   // Total number of invalid blocks
-    logic [                   31 : 0]   o_257_inv_pattern_count                     ;   // Total number of 257b blocks with invalid char pattern
-    logic [                   31 : 0]   o_257_inv_format_count                      ;   // Total number of 257b blocks with with invalid 64b format
     logic [                   31 : 0]   o_257_inv_sh_count                          ;   // Total number of 257b blocks with invalid sync header
     // 66b Checker
     logic [DATA_WIDTH        - 1 : 0]   o_txd                   [TC_BLOCKS - 1 : 0] ;   // Output MII Data
@@ -136,7 +134,7 @@ module tb_BASER_gen_check;
         `ifdef INTERRUPT
 
         // Simulation interrupt
-        if((o_257_inv_format_count + o_257_inv_sh_count) == prev_257_inv_block_count) begin
+        if(o_257_inv_block_count == prev_257_inv_block_count) begin
             state_count <= 'd0;
         end
         else if(state_count < 100) begin
@@ -148,12 +146,11 @@ module tb_BASER_gen_check;
             $display("Total Blocks Received: %0d"       ,   o_257_block_count       );
             $display("Data Blocks Received: %0d"        ,   o_257_data_count        );
             $display("Control Blocks Received: %0d"     ,   o_257_ctrl_count        );
-            $display("Invalid Blocks Received: %0d"     ,   o_257_inv_format_count + o_257_inv_sh_count   );
+            $display("Invalid Blocks Received: %0d"     ,   o_257_inv_block_count   );
 
             $finish;
         end
-        prev_257_inv_block_count <= o_257_inv_format_count + o_257_inv_sh_count;
-
+        prev_257_inv_block_count <= o_257_inv_block_count;
         `endif
 
     end
@@ -449,7 +446,7 @@ module tb_BASER_gen_check;
 
         `endif
 
-        inv_block_no_pattern_count = o_257_inv_format_count + o_257_inv_sh_count;
+        inv_block_no_pattern_count = o_257_inv_sh_count;
         
         inv_percent  = real'(inv_block_no_pattern_count) / real'(o_257_block_count) * 100;
         // inv_percent  = real'(o_257_inv_block_count)      / real'(o_257_block_count) * 100;
@@ -465,13 +462,13 @@ module tb_BASER_gen_check;
         end
 
         // Display all counters
-        $display("---256B/257B CHECKER---\n"                                        );
-        $display("Total Blocks Received: %0d"       ,   o_257_block_count           );
-        $display("\tData Blocks Received: %0d"        ,   o_257_data_count            );
-        $display("\tControl Blocks Received: %0d"     ,   o_257_ctrl_count            );
-        $display("Invalid Blocks Received: %0d"     ,   inv_block_no_pattern_count  );
-        // $display("Invalid Blocks Received: %0d"     ,   o_257_inv_block_count       );
-        $display("Valid blocks percentage: %.1f%%\n"  ,   (100 - inv_percent)       );
+        $display("---256B/257B CHECKER---\n");
+        $display("Total Blocks Received: %0d", o_257_block_count);
+        $display("\tData Blocks Received: %0d", o_257_data_count);
+        $display("\tControl Blocks Received: %0d", o_257_ctrl_count);
+        $display("Blocks with SH '0' and Next 4 Bits '1111' Received: %0d\n", o_257_inv_sh_count);
+        // $display("Invalid Blocks Received: %0d"         , o_257_inv_block_count );
+        // $display("Valid blocks percentage: %.1f%%\n"    , (100 - inv_percent)   );
 
         for(int i = 0; i < TC_BLOCKS; i++) begin
             $display("---64B/66B CHECKER: LINE %0d---\n", i);
@@ -481,7 +478,7 @@ module tb_BASER_gen_check;
             $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
             $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
             $display("\t-Invalid Format: %0d", o_66_inv_format_count[i]);
-            $display("\t-Invalid Sync Header: %0d\n", o_66_inv_sh_count[i]);
+            $display("\t-Invalid Sync Header ('00' or '11'): %0d\n", o_66_inv_sh_count[i]);
         end
 
         $finish;
@@ -537,8 +534,6 @@ module tb_BASER_gen_check;
         .o_data_count           (o_257_data_count       ),
         .o_ctrl_count           (o_257_ctrl_count       ),
         .o_inv_block_count      (o_257_inv_block_count  ),
-        .o_inv_pattern_count    (o_257_inv_pattern_count),
-        .o_inv_format_count     (o_257_inv_format_count ),
         .o_inv_sh_count         (o_257_inv_sh_count     )
     );
 
