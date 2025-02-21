@@ -3,9 +3,6 @@
     Posee los siguientes contadores:
         -> Bloques de solo datos recibidos
         -> Bloques de control recibidos
-        -> Bloques con un patron que no coincide con el especificado en
-           los parametros
-        -> Bloques con un formato que no satisface la norma
         -> Bloques con un sync header invalido (El SH indica un bloque
            de control pero todo el bloque es de datos)
 */

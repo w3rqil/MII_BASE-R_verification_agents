@@ -3,7 +3,10 @@
     Posee los siguientes contadores:
         -> Bloques de dato recibidos
         -> Bloques de control recibidos
-        -> Bloques con un sync header invalido
+        -> Bloques con un patron que no coincide con el especificado en
+           los parametros
+        -> Bloques con un formato que no satisface la norma (Block Type que no existe por ejemplo)
+        -> Bloques con un sync header invalido ('00' o '11')
 */
 `timescale 1ns/100ps
 

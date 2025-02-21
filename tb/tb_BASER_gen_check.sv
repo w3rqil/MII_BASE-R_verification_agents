@@ -151,6 +151,7 @@ module tb_BASER_gen_check;
             $finish;
         end
         prev_257_inv_block_count <= o_257_inv_block_count;
+        
         `endif
 
     end
@@ -159,8 +160,8 @@ module tb_BASER_gen_check;
         // $dumpfile("Modulos/signalGenerator/tb/tb_BASER_gen_check.vcd");
         // $dumpvars();
 
-        // MII log
-        $display("Time\t\tTXD input\t\t\t\tTXD output (0)\t\t\tTXD output (1)\t\t\tTXD output (2)\t\t\tTXD output (3)");
+        // // MII log
+        // $display("Time\t\tTXD input\t\t\t\tTXD output (0)\t\t\tTXD output (1)\t\t\tTXD output (2)\t\t\tTXD output (3)");
 
         clk                 = 'b0       ;
         i_rst               = 'b1       ;
@@ -463,10 +464,10 @@ module tb_BASER_gen_check;
 
         // Display all counters
         $display("---256B/257B CHECKER---\n");
-        $display("Total Blocks Received: %0d", o_257_block_count);
-        $display("\tData Blocks Received: %0d", o_257_data_count);
-        $display("\tControl Blocks Received: %0d", o_257_ctrl_count);
-        $display("Blocks with SH '0' and Next 4 Bits '1111' Received: %0d\n", o_257_inv_sh_count);
+        $display("Total blocks received: %0d", o_257_block_count);
+        $display("\tBlocks with all 66B Data Blocks received: %0d", o_257_data_count);
+        $display("\tBlocks with at least one 66B Control Block received: %0d", o_257_ctrl_count);
+        $display("Blocks with SH '0' and next 4 bits '1111' Received: %0d\n", o_257_inv_sh_count);
         // $display("Invalid Blocks Received: %0d"         , o_257_inv_block_count );
         // $display("Valid blocks percentage: %.1f%%\n"    , (100 - inv_percent)   );
 
@@ -477,7 +478,7 @@ module tb_BASER_gen_check;
             $display("\t-Control Blocks Received: %0d", o_66_ctrl_count[i]);
             $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
             $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
-            $display("\t-Invalid Format: %0d", o_66_inv_format_count[i]);
+            $display("\t-Invalid Format/Block Type: %0d", o_66_inv_format_count[i]);
             $display("\t-Invalid Sync Header ('00' or '11'): %0d\n", o_66_inv_sh_count[i]);
         end
 
