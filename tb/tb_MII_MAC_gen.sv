@@ -21,6 +21,9 @@ module tb_mac_mii_top;
     wire [63:0] o_mii_data;
     wire [7:0] o_mii_valid;
     wire valid;
+    
+    localparam [7:0] NO_PADDING      = 8'd2;
+
     // Clock generation
     initial clk = 0;
     always #(CLK_PERIOD / 2) clk = ~clk;
@@ -93,6 +96,7 @@ module tb_mac_mii_top;
         // Wait for frame to complete
         repeat (10) @(posedge clk);
 
+        // ------------------------
         i_payload_length = 8;
         
         i_start = 1; // Trigger frame generation
@@ -101,6 +105,19 @@ module tb_mac_mii_top;
 
         // Wait for frame to complete
         repeat (10) @(posedge clk);
+
+        // ------------------------
+        
+        i_interrupt = NO_PADDING;   // Dismiss padding
+        
+        i_start = 1; // Trigger frame generation
+        repeat (70)@(posedge clk);
+        i_start = 0; // Deassert start
+
+        // Wait for frame to complete
+        repeat (10) @(posedge clk);
+
+        // ------------------------
         
         i_payload_length = 500;
         
@@ -110,6 +127,8 @@ module tb_mac_mii_top;
 
         // Wait for frame to complete
         repeat (10) @(posedge clk);
+
+        // ------------------------
         
         // End simulation
         $stop;

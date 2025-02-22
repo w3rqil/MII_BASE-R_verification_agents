@@ -78,14 +78,14 @@ module MII_gen
         //                 START_CODE                                  }                                                   ;
         // end
         // else begin //
-        if(i_interrupt == NO_PADDING)begin // NO PADDING interrupt
-            register = {EOF_CODE, i_register[8*PACKET_LEN_NO_PADDING - 1 : 8], START_CODE}                                      ;
-        end else begin
-            register = {EOF_CODE, i_register[8*PACKET_LENGTH - 1 : 8], START_CODE}                                      ;
-        end
+        // if(i_interrupt == NO_PADDING)begin // NO PADDING interrupt
+        //     register = {EOF_CODE, i_register[8*PACKET_LEN_NO_PADDING - 1 : 8], START_CODE}                                      ;
+        // end else begin
+        //     register = {EOF_CODE, i_register[8*PACKET_LENGTH - 1 : 8], START_CODE}                                      ;
+        // end
         //end
         
-        payload_size = (i_payload_length < 46)? 46 : i_payload_length;
+        payload_size = (i_payload_length < 46 && i_interrupt != NO_PADDING)? 46 : i_payload_length;
         packet_length = payload_size + 26;
         packet_len_no_padding = i_payload_length + 26;
         
@@ -140,7 +140,7 @@ module MII_gen
                         // next_tx_data = {{8*(8 - (PACKET_LENGTH + 1) % 8){IDLE_CODE}}, 
                         //                 register[8*(PACKET_LENGTH + 1) - 1 -: 8*((PACKET_LENGTH + 1) % 8)]}             ;
 
-                        //next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}}                  ;
+                        // next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}}                  ;
                         for(i=0; i<8; i++) begin
                             if((next_tx_data[i*8 +:8] == START_CODE)|| (next_tx_data[i*8 +:8] == EOF_CODE) || (next_tx_data[i*8 +:8] == IDLE_CODE) )begin
                                 next_tx_control[i] = 1'b1;
