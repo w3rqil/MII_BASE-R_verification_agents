@@ -1,7 +1,5 @@
 module MII_gen
 #(
-    parameter           PAYLOAD_MAX_SIZE = 1500                                                                         , // Maximum payload size in bytes
-
     /* Packet structure:
         - Preamble: 7 bytes
         - SFD: 1 byte
@@ -11,24 +9,25 @@ module MII_gen
         - Client Data (Payload): 46-1500 bytes
         - Frame Check Sequence (CRC): 4 bytes 
     */
-    parameter           PACKET_MAX_BITS = 8*(PAYLOAD_MAX_SIZE + 26)                                                     ,
+    parameter           PAYLOAD_MAX_SIZE = 1500                                                                         , // Maximum payload size in bytes
+    parameter           PACKET_MAX_BITS      = 8*(PAYLOAD_MAX_SIZE + 26)                                                ,
     parameter   [7:0]   PAYLOAD_CHAR_PATTERN = 8'h55                                                                    ,
-    parameter           PAYLOAD_LENGTH = 8
+    parameter           PAYLOAD_LENGTH       = 8
 )
 (
-    input wire          clk                                                                                             ,
-    input wire          i_rst_n                                                                                         ,
-    input wire          i_mii_tx_en                                                                                     ,
-    input wire          i_valid                                                                                         ,
-    input wire          i_mac_done                                                                                      ,
-    input wire          i_mii_tx_er                                                                                     , // 4'b0000
-    input wire  [63:0]  i_mii_tx_d                                                                                      ,
+    input wire                        clk                                                                               ,
+    input wire                        i_rst_n                                                                           ,
+    input wire                        i_mii_tx_en                                                                       ,
+    input wire                        i_valid                                                                           ,
+    input wire                        i_mac_done                                                                        ,
+    input wire                        i_mii_tx_er                                                                       , // 4'b0000
+    input wire  [63:0]                i_mii_tx_d                                                                        ,
     input wire  [PACKET_MAX_BITS-1:0] i_register                                                                        ,
-    input wire  [7: 0]  i_interrupt                                                                                     ,
-    input wire  [15:0]  i_payload_length                                                                                ,
-    output wire         o_txValid                                                                                       ,
-    output wire [63:0]  o_mii_tx_d                                                                                      ,
-    output wire [7:0 ]  o_control
+    input wire  [7: 0]                i_interrupt                                                                       ,
+    input wire  [15:0]                i_payload_length                                                                  ,
+    output wire                       o_txValid                                                                         ,
+    output wire [63:0]                o_mii_tx_d                                                                        ,
+    output wire [7:0 ]                o_control
 );
     localparam PAYLOAD_SIZE  =  (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                               ;
     localparam PACKET_LENGTH = PAYLOAD_SIZE + 26;
@@ -64,26 +63,10 @@ module MII_gen
     integer i;
     integer aux_int;
     integer int_counter;
-    //reg outValid;
 
     integer aux_int_sr, byte_counter_int, AUX_TEST                                                                      ;
 
     always @(*) begin : state_machine
-        // if(PAYLOAD_LENGTH < 46) begin
-        //     register = {
-        //                 EOF_CODE                                    ,
-        //                 i_register[8*PACKET_LENGTH - 8 - 1 -: 32]   ,
-        //                 {8*(46 - PAYLOAD_LENGTH){1'b0}}             ,
-        //                 i_register[8 +: 8*(PAYLOAD_LENGTH + 21)]    ,
-        //                 START_CODE                                  }                                                   ;
-        // end
-        // else begin //
-        // if(i_interrupt == NO_PADDING)begin // NO PADDING interrupt
-        //     register = {EOF_CODE, i_register[8*PACKET_LEN_NO_PADDING - 1 : 8], START_CODE}                                      ;
-        // end else begin
-        //     register = {EOF_CODE, i_register[8*PACKET_LENGTH - 1 : 8], START_CODE}                                      ;
-        // end
-        //end
         
         payload_size = (i_payload_length < 46 && i_interrupt != NO_PADDING)? 46 : i_payload_length;
         packet_length = payload_size + 26;
@@ -124,8 +107,8 @@ module MII_gen
                         next_state = DONE                                                                               ;
                     end 
                     else  begin
-                                        //  ( 8 - pk_len + fd byte) % 8
-                                        //                          % me da el resto despues de transmitir correctamente los anteriores mensajes
+                        //  ( 8 - pk_len + fd byte) % 8
+                        //                          % me da el resto despues de transmitir correctamente los anteriores mensajes
                         for(i=0; i<8; i++) begin
                             if(i < (packet_length - 8) % 8) begin
                                 next_tx_data[i*8 +: 8] = i_register[8 * (counter + i) +: 8];

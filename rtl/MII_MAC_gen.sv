@@ -3,25 +3,25 @@ module mac_mii_top #(
     parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55,
     parameter PAYLOAD_LENGTH = 8
 )(
-    input wire clk,
-    input wire i_rst_n,
-    input wire i_start,               // Start frame generation
-    input wire [47:0] i_dest_address, // Destination MAC address
-    input wire [47:0] i_src_address,  // Source MAC address
-    input wire [15:0] i_eth_type,     // EtherType
-    input wire [15:0] i_payload_length,
-    input wire [7:0] i_payload[PAYLOAD_LENGTH-1:0],
-    input wire [7:0] i_interrupt,
+    input wire         clk                                      ,
+    input wire         i_rst_n                                  ,
+    input wire         i_start                                  , // Start frame generation
+    input wire [47:0]  i_dest_address                           , // Destination MAC address
+    input wire [47:0]  i_src_address                            , // Source MAC address
+    input wire [15:0]  i_eth_type                               , // EtherType
+    input wire [15:0]  i_payload_length                         ,
+    input wire [7:0]   i_payload         [PAYLOAD_LENGTH-1:0]   ,
+    input wire [7:0]   i_interrupt                              ,
 
-    output wire        o_txValid,
-    output wire [63:0] o_mii_data,     // MII data output (8-bit)
-    output wire [7:0] o_mii_valid     // MII ctrl signal
+    output wire        o_txValid                                ,
+    output wire [63:0] o_mii_data                               , // MII data output (8-bit)
+    output wire [7:0]  o_mii_valid                                // MII ctrl signal
 );
 
     // Signals to connect mac_frame_generator and MII_gen
-    wire        mac_valid;
-    wire [63:0] mac_frame_out;
-    wire        mac_done;
+    wire        mac_valid       ;
+    wire [63:0] mac_frame_out   ;
+    wire        mac_done        ;
     
     wire [(PAYLOAD_MAX_SIZE)*8 + 112+ 32 + 64 -1:0] register;
 
@@ -71,7 +71,7 @@ module mac_mii_top #(
     );
 
     // Outputs from MII_gen
-    assign o_mii_data = mii_tx_data;  // Output 8 bits at a time
+    assign o_mii_data  = mii_tx_data;  // Output 8 bits at a time
     assign o_mii_valid = mii_control;   // Output valid flag
 
 endmodule
