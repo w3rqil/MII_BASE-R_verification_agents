@@ -66,11 +66,11 @@ module mac_frame_generator #(
     //min_size_flag = (i_eth_type < 46) ? 1 : 0;
 
     reg        valid, next_valid, next_done                                                                                 ;
-    reg [63:0] frame_out, next_frame_out                                                                                    ;
+    reg [31:0] frame_out, next_frame_out                                                                                    ;
     reg [15:0] next_payload_index, next_byte_counter, next_padding_counter                                                  ;   
 
     reg [31:0] crc, next_crc                                                                                                ;
-    reg [63:0] data_xor                                                                                                     ;
+    reg [31:0] data_xor                                                                                                     ;
 
     logic [15:0] payload_size;
     assign payload_size = (i_payload_length < MIN_PAYLOAD_SIZE) ? MIN_PAYLOAD_SIZE : i_payload_length;
@@ -117,20 +117,20 @@ module mac_frame_generator #(
             gen_shift_reg = {payload_reg, header_shift_reg}                                                                 ; 
             
             //! CRC32 calculation
-            for(i=0; i<(i_payload_length*8 + 112 ); i= i+64) begin
+            for(i=0; i<(i_payload_length*8 + 112 ); i= i+32) begin
                     
-                    next_frame_out = gen_shift_reg [(i) + 63 -: 64]                                                         ;
+                    next_frame_out = gen_shift_reg [(i) + 31 -: 32]                                                         ;
                 
                     // crc calc 
                     if(i==0)begin   
-                        data_xor = {32'hFFFFFFFF ,32'b0} ^ next_frame_out                                                   ; //initial xor // {crc,    32'b0} {32'b0, crc}
+                        data_xor = 32'hFFFFFFFF ^ next_frame_out                                                   ; //initial xor // {crc,    32'b0} {32'b0, crc}
 
                     end else begin                                                  
-                        data_xor = {{ next_crc} ,32'b0} ^ next_frame_out                                                    ; //initial xor // {crc,    32'b0} {32'b0, crc}
+                        data_xor = next_crc ^ next_frame_out                                                    ; //initial xor // {crc,    32'b0} {32'b0, crc}
                     end 
 
-                    for (j = 0; j < 64; j = j + 1) begin    
-                        if (data_xor[63]) begin 
+                    for (j = 0; j < 32; j = j + 1) begin    
+                        if (data_xor[31]) begin 
                             data_xor = (data_xor << 1) ^ POLYNOMIAL                                                         ;
                         end else begin                                                      
                             data_xor = (data_xor << 1)                                                                      ;

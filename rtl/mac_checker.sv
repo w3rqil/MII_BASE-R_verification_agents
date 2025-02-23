@@ -11,24 +11,24 @@ module mac_checker #
     parameter [7:0] TERM_CODE       = 8'hFD, 
     parameter [7:0] PREAMBLE_CODE   = 8'h55,
     parameter [7:0] SFD_CODE        = 8'hD5,
-    parameter [47:0] DST_ADDR_CODE  = 48'h0180C2000001,
-    parameter [47:0] SRC_ADDR_CODE  = 48'h5A5152535455
+    parameter [47:0] DST_ADDR_CODE  = 48'hFFFFFFFFFFFF,
+    parameter [47:0] SRC_ADDR_CODE  = 48'h123456789ABC
 )
 (
-    input logic                  clk,
-    input logic                  i_rst,
-    input logic [DATA_WIDTH-1:0] i_rx_data,
-    //input logic [CTRL_WIDTH-1:0] i_rx_ctrl,
-    input logic [FCS_WIDTH-1:0]  i_rx_fcs,
-    output logic                 preamble_error,
-    output logic                 fcs_error,   
-    output logic                 header_error,
-    output logic                 payload_error,
-    output logic                 o_data_valid
+    input logic                         clk,
+    input logic                         i_rst_n,
+    input logic [DATA_WIDTH-1:0]        i_rx_data [0:255],
+    input logic [MAX_FRAME_SIZE-1:0]    i_rx_array_data,
+    input logic [CTRL_WIDTH-1:0]        i_rx_ctrl,
+    input logic                         i_data_valid,
+    output logic                        preamble_error,
+    output logic                        fcs_error,   
+    output logic                        header_error,
+    output logic                        payload_error
 );
 
     // Parámetros de los tamaños de los campos en bytes 
-    localparam int PREAMBLE_SIZE        = 7;    // PREAMBLE STATE
+    localparam int PREAMBLE_SIZE        = 6;    // PREAMBLE STATE
     localparam int SFD_SIZE             = 1;    // PREAMBLE STATE
     localparam int DA_SIZE              = 6;    // HEADER STATE
     localparam int SA_SIZE              = 6;    // HEADER STATE
@@ -40,170 +40,227 @@ module mac_checker #
     localparam int MIN_FRAME_SIZE       = 64;
     localparam int MAX_FRAME_SIZE       = 1518;
 
-    typedef enum logic [2:0] {
-        WAIT_START  = 3'b000,
-        PREAMBLE    = 3'b001,
-        HEADER      = 3'b010,
-        PAYLOAD     = 3'b011,
-        FCS         = 3'b100
-    } state_t;
-
-    state_t state, next_state;
-
-    logic [7:0] start_data_byte;
-    logic [7:0] sfd_data_byte;
-    logic tx_ctrl_bit;
-
-    assign start_data_byte = i_rx_data[7:0];
-    //assign tx_ctrl_bit  = i_rx_ctrl[0];
-    assign sfd_data_byte = i_rx_data[63:56];
-
     logic [15:0] length_type; // 2 bytes
-    logic [127:0] shift_register; // 16 bytes
-    int next_payload_size, payload_size, length_type_size;                  
-    logic valid_preamble, valid_header, valid_payload, valid_fcs;
-    logic invalid_preamble, invalid_header, invalid_payload, invalid_fcs;
-    int i, j, k, n;
-    logic found_fcs, valid_data;
+    logic [47:0] sa; // 6 bytes
+    logic [47:0] da; // 6 bytes
+    logic [FCS_WIDTH-1:0] fcs; // 4 bytes
+    integer payload_size; // Tamaño del payload
+    integer payload_counter; // Contador de bytes del payload
+    logic [31:0] calculated_fcs;
+    logic [31:0] calculated_crc32_v2;
 
-    assign preamble_error = invalid_preamble;
-    assign header_error = invalid_header;
-    assign payload_error = invalid_payload;
-    assign fcs_error = invalid_fcs;
-    assign o_data_valid = valid_data;
+    // Archivo de log
+    integer log_file;
+    integer counter; 
+    reg [PREAMBLE_SIZE*8-1:0] preamble_accum;
 
-    always_comb begin
-        next_state = state;
-        next_payload_size = payload_size;
-
-        case (state)
-            // Solo esperamos el start para pasar al estado de preámbulo
-            WAIT_START: begin
-                if (start_data_byte == START_CODE) begin
-                    next_state = PREAMBLE;
-                    valid_preamble = 1'b0;
-                    invalid_preamble = 1'b0;
-                    valid_data = 1'b1;
-                end
-            end
-
-            // Chekeamos el preambulo y el SFD
-            PREAMBLE: begin
-                for (i = 0; i < 8; i = i + 1) begin
-                    if(i < 7) begin
-                        if(i_rx_data[i*8 +: 8] == PREAMBLE_CODE) begin
-                            valid_preamble = 1'b1;
-                            invalid_preamble = 1'b0;
-                            valid_header = 1'b0;
-                            invalid_header = 1'b0;
-                        end else begin
-                            invalid_preamble = 1'b1;
-                            next_state = WAIT_START;
-                        end
-                    end else if (i == 7) begin
-                        if(i_rx_data[i*8 +: 8] == SFD_CODE && !invalid_preamble) begin
-                            valid_preamble = 1'b1;
-                            invalid_preamble = 1'b0;
-                            valid_header = 1'b0;
-                            invalid_header = 1'b0;
-                            next_state = HEADER;
-                        end else begin
-                            invalid_preamble = 1'b1;
-                            next_state = WAIT_START;
-                        end
-                    end
-
-                end
-            end
-
-            // Chekeamos la dirección de destino, la dirección de origen y el tipo/longitud
-            HEADER: begin
-                for (j = 0; j < 14; j = j + 1) begin
-                    if (j < 6) begin
-                        if (i_rx_data[j*8 +: 8] != DST_ADDR_CODE) begin
-                            invalid_header = 1'b1;
-                            next_state = WAIT_START;
-                        end
-                    end  else if (j > 6 && j < 12) begin
-                        if (i_rx_data[j*8 +: 8] != SRC_ADDR_CODE) begin
-                            invalid_header = 1'b1;
-                            next_state = WAIT_START;
-                        end
-                    end else begin
-                        length_type[(j-12)*8 +: 8] = i_rx_data[j*8 +: 8];
-                    end
-
-                    if (!invalid_header) begin
-                        valid_header = 1'b1;
-                        payload_size = 2; // POR QUE YA TENEMOS 2 BYTES
-                        valid_payload = 1'b0;
-                        invalid_payload = 1'b0;
-                        next_state = PAYLOAD;
-                    end
-                end
-            end
-
-            // Chekeamos el payload
-            PAYLOAD: begin
-                found_fcs = 1'b0;
-                next_payload_size = payload_size;
-                if (length_type > 16'h0000 && length_type < 16'h05DC) begin
-                    length_type_size = length_type;
-                end else begin
-                    invalid_payload = 1'b1;
-                    invalid_header = 1'b1;
-                    next_state = WAIT_START;
-                end
-
-                for (k = 0; k < 8; k = k + 1) begin
-                    if (!found_fcs) begin
-                        // Verificar cuando comienza el FCS
-                        if (payload_size >= length_type_size) begin
-                            next_payload_size = payload_size + k; 
-                            found_fcs = 1'b1; 
-                        end
-                    end
-                end
-
-                if (found_fcs) begin
-                    if (payload_size < MIN_MAC_CLIENT_DATA || payload_size > MAX_MAC_CLIENT_DATA) begin
-                        invalid_payload = 1'b1;
-                        next_state = WAIT_START;
-                    end
-                    valid_payload = 1'b1;
-                    invalid_payload = 1'b0;
-                    valid_fcs = 1'b0;
-                    invalid_fcs = 1'b0;
-                    valid_data = 1'b0;
-                    next_state = FCS;
-                end else begin
-                    next_payload_size = payload_size + 8;
-                    next_state = PAYLOAD;
-                end
-            end
-
-            // Chekeamos el FCS que tenemos como dato en la trama con el que recibimos de i_rx_fcs de nuestro otro modulo
-            FCS: begin
-                for (n=0; n < 4; n = n + 1) begin
-                    if (i_rx_fcs[n*8 +: 8] != i_rx_data[n*8 +: 8]) begin
-                        invalid_fcs = 1'b1;
-                        next_state = WAIT_START;
-                    end
-                end
-            end
-
-            default: next_state = WAIT_START;
-        endcase
-    end
-
-    always_ff @(posedge clk or posedge i_rst) begin
-        if (i_rst) begin
-            state <= WAIT_START;
-            payload_size <= 0;
-        end else begin
-            state <= next_state;
-            payload_size <= next_payload_size;
+    initial begin
+        // Abrir archivo de log
+        log_file = $fopen("D:/Documentos/FACULTAD/Laboratorio_de_Comunicaciones_Digitales/mac_checker.log", "w");
+        if (log_file == 0) begin
+            $display("Error: No se pudo abrir el archivo de log.");
+            $finish;
         end
     end
 
+    always_ff @(posedge i_data_valid or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            preamble_error <= 'd0;
+            header_error <= 'd0;
+            payload_error <= 'd0;
+            fcs_error <= 'd0;
+            counter <= 1;
+            payload_size <= 0;
+            payload_counter <= 0;
+        end else if (i_data_valid) begin
+            // Inicialización de errores y acumuladores
+            preamble_error <= 'd0;
+            header_error <= 'd0;
+            payload_error <= 'd0;
+            fcs_error <= 'd0;
+            preamble_accum <= 48'b0;
+            payload_counter <= 0;
+            payload_size <= 0;
+
+            $fdisplay(log_file, "\n=========================================\n");
+
+            // Log del frame actual
+            $fdisplay(log_file, "FRAME %d", counter);
+            $fdisplay(log_file, "----> PREAMBULO y SFD <----");
+    
+            // Verificar el preámbulo y SFD del frame en i_rx_array_data
+            for (int i = 0; i < 8; i++) begin
+                logic [7:0] current_byte;
+                current_byte = i_rx_array_data[(i * 8) +: 8]; // Extraer byte actual
+    
+                if (i == 0 && current_byte == START_CODE) begin
+                    $fdisplay(log_file, "START CODE: %h", current_byte);
+                end else if (i > 0 && i < 7 && current_byte == PREAMBLE_CODE) begin
+                    preamble_accum = {preamble_accum[PREAMBLE_SIZE*8-9:0], current_byte};
+                end else if (i == 7 && current_byte == SFD_CODE) begin
+                    $fdisplay(log_file, "PREAMBLE CODE: %h", preamble_accum);
+                    $fdisplay(log_file, "SFD CODE: %h", current_byte);
+                end else begin
+                    preamble_error <= 'd1;
+                    $fdisplay(log_file, "ERROR: Byte inesperado %h", current_byte);
+                end
+            end
+
+            // Verificar el header del frame 
+            // SA - DA - LENGTH_TYPE
+            $fdisplay(log_file, "----> HEADER (SA, DA, LENGTH_TYPE) <----");
+
+            da = i_rx_array_data[64 +: 48];
+            if (da == DST_ADDR_CODE) begin
+                $fdisplay(log_file, "DA: %h", da);
+            end else begin
+                header_error <= 'd1;
+                $fdisplay(log_file, "ERROR: DA inesperado %h", da);
+            end
+
+            sa = i_rx_array_data[112 +: 48];
+            if (sa == SRC_ADDR_CODE) begin
+                $fdisplay(log_file, "SA: %h", sa);
+            end else begin
+                header_error <= 'd1;
+                $fdisplay(log_file, "ERROR: SA inesperado %h", sa);
+            end
+
+            length_type = i_rx_array_data[160 +: 16];
+            $fdisplay(log_file, "LENGTH_TYPE: %h", length_type);
+
+            if(length_type < 1500) begin
+                payload_size = length_type;
+            end else begin 
+                payload_size = -1;
+            end
+
+            // Verificar el payload del frame
+            $fdisplay(log_file, "----> PAYLOAD <----");
+            if (payload_size > 1 && payload_size < 1500) begin
+                $fdisplay(log_file, "PAYLOAD SIZE: %d", payload_size);
+            end else begin
+                $fdisplay(log_file, "[PAYLOAD SIZE]: XXX");
+            end
+                
+            // Contar Bytes de payload 
+            for(int k = 176; k < 1500; k = k+8) begin
+                logic [7:0] current_byte;
+                current_byte = i_rx_array_data[k +: 8]; 
+
+                if(current_byte != TERM_CODE) begin
+                    payload_counter = payload_counter + 1;
+                end else begin
+                    $fdisplay(log_file, "TERMINATION CODE %h", current_byte);
+                    payload_counter = payload_counter - 5; 
+                    // 1 byte term code y 4 de FCS
+                    fcs = i_rx_array_data[(k - 32) +: 32];
+                    break;
+                end
+            end
+            
+            $fdisplay(log_file, "PAYLOAD COUNTER: %d", payload_counter);
+
+            if(payload_size > 1 && payload_size < 1500) begin
+                if(payload_counter == payload_size) begin
+                    $fdisplay(log_file, "PAYLOAD OK");
+                end else begin
+                    payload_error <= 'd1;
+                    $fdisplay(log_file, "ERROR: PAYLOAD %d", payload_counter);
+                end
+            end
+           
+            // Verificar FCS
+            $fdisplay(log_file, "----> FCS <----");
+            $fdisplay(log_file, "FCS: %h", fcs);
+            calculated_fcs = calculate_crc32(i_rx_array_data, payload_counter + 14);
+            $fdisplay(log_file, "CALCULATED FCS: %h", calculated_fcs);
+            calculated_crc32_v2 = calculate_crc32_v2(i_rx_array_data, payload_counter + 14);
+            $fdisplay(log_file, "CALCULATED FCS V2: %h", calculated_crc32_v2);
+
+            counter = counter + 1;
+        end else begin
+            preamble_error <= 'd0;
+            header_error <= 'd0;
+            payload_error <= 'd0;
+            fcs_error <= 'd0;
+        end
+        $fflush(log_file);
+    end    
+
+    final begin
+        // Cerrar el archivo al finalizar la simulación
+        if (log_file != 0) begin
+            $fclose(log_file);
+        end
+    end
+
+    function automatic logic [31:0] calculate_crc32(
+        input logic [MAX_FRAME_SIZE-1:0] frame_data,
+        input integer frame_size
+    );
+
+        // Polinomio CRC-32 (IEEE 802.3)
+        localparam logic [31:0] CRC_POLYNOMIAL = 32'h04C11DB7;
+
+        logic [31:0] crc_reg;
+        integer i, j;
+
+        // Inicialización del CRC con 0xFFFFFFFF
+        crc_reg = 32'hFFFFFFFF;
+
+        // Recorrer bit a bit el frame
+        for (i = 64; i < frame_size * 8; i = i + 1) begin
+            logic bit_in = frame_data[(frame_size * 8) - 1 - i] ^ crc_reg[31];
+            crc_reg = (crc_reg << 1) | bit_in;
+        
+            if (bit_in) begin
+                crc_reg = crc_reg ^ CRC_POLYNOMIAL;
+            end
+        end
+
+        // Complemento final
+        return ~crc_reg;
+    endfunction
+
+
+    function automatic logic [31:0] calculate_crc32_v2
+    (
+        input logic [MAX_FRAME_SIZE-1:0] frame_data,
+        input integer frame_size
+    );
+
+        logic [31:0] next_crc;
+        logic [63:0] data_xor;
+        int i, j;
+
+        next_crc = 32'hFFFFFFFF;
+
+        for(i = 64; i < (frame_size*8); i = i + 64) begin
+            logic [63:0] next_frame_out;
+            next_frame_out = frame_data[i +: 64];
+            //$fdisplay(log_file, "FRAME OUT: %h", next_frame_out);
+
+            if (i == 64) begin
+                data_xor = {32'hFFFFFFFF, 32'b0} ^ next_frame_out;
+            end else begin
+                data_xor = {next_crc, 32'b0} ^ next_frame_out;
+            end
+            
+            for (j = 0; j < 64; j = j + 1) begin
+                if (data_xor[63]) begin
+                    data_xor = (data_xor << 1) ^ 32'h04C11DB7;
+                end else begin
+                    data_xor = (data_xor << 1);
+                end
+            end
+            
+            next_crc = ~data_xor[31:0];
+        end
+        
+        return next_crc;
+    endfunction
+
+
 endmodule
+

@@ -3,9 +3,22 @@
 module tb_mac_mii_checker;
 
     // Parameters
-    localparam PAYLOAD_LENGTH = 8;
-    localparam CLK_PERIOD = 10;  // 100 MHz clock
-    localparam PAYLOAD_MAX_SIZE = 64;
+    localparam PAYLOAD_LENGTH   = 50;
+    localparam PAYLOAD_MAX_SIZE = 1500;
+    localparam CLK_PERIOD       = 10;  // 100 MHz clock
+    localparam DATA_WIDTH       = 64;
+    localparam CTRL_WIDTH       = 8;
+    localparam FCS_WIDTH        = 32;
+    localparam IDLE_CODE        = 8'h07;
+    localparam START_CODE       = 8'hFB;
+    localparam TERM_CODE        = 8'hFD;
+    localparam PREAMBLE_CODE    = 8'h55;
+    localparam SFD_CODE         = 8'hD5;
+    localparam DST_ADDR_CODE    = 48'hFFFFFFFFFFFF;
+    localparam SRC_ADDR_CODE    = 48'h123456789ABC;
+    localparam int MIN_PAYLOAD_BYTES = 46;
+    localparam int MAX_PAYLOAD_BYTES = 1500;
+    localparam int MAX = MIN_PAYLOAD_BYTES + MAX_PAYLOAD_BYTES;
 
     // Signals
     reg clk;
@@ -17,16 +30,16 @@ module tb_mac_mii_checker;
     reg [15:0] i_payload_length;
     reg [7:0] i_payload[PAYLOAD_LENGTH-1:0];
     reg [7:0] i_interrupt;
-
     wire [63:0] o_mii_data;
     wire [7:0] o_mii_valid;
+    wire valid;
 
-    // MII Checker Outputs
-    wire payload_error, intergap_error, other_error;
-    wire [63:0] o_captured_data;
-
-    // MAC Checker Outputs
-    wire preamble_error, fcs_error, header_error, mac_payload_error, o_data_valid;
+    logic other_error, payload_error, intergap_error;
+    logic preamble_error, fcs_error, header_error, payload_error_mac;
+    wire valid_mac;
+    logic [DATA_WIDTH-1:0] captured_data;
+    logic [DATA_WIDTH-1:0] buffer_data[0:255];
+    logic [650-1:0] array_data;
 
     // Clock generation
     initial clk = 0;
@@ -46,40 +59,55 @@ module tb_mac_mii_checker;
         .i_payload_length(i_payload_length),
         .i_payload(i_payload),
         .i_interrupt(i_interrupt),
+        .o_txValid (valid),
         .o_mii_data(o_mii_data),
         .o_mii_valid(o_mii_valid)
     );
 
     // Instantiate mii_checker
     mii_checker #(
-        .DATA_WIDTH(64),
-        .CTRL_WIDTH(8)
-    ) mii_checker_inst (
+        .DATA_WIDTH(DATA_WIDTH),
+        .CTRL_WIDTH(CTRL_WIDTH),
+        .IDLE_CODE(IDLE_CODE),
+        .START_CODE(START_CODE),
+        .TERM_CODE(TERM_CODE)
+    ) dut_checker_mii (
         .clk(clk),
-        .i_rst(~i_rst_n),
+        .i_rst_n(i_rst_n),
         .i_tx_data(o_mii_data),
         .i_tx_ctrl(o_mii_valid),
         .payload_error(payload_error),
         .intergap_error(intergap_error),
         .other_error(other_error),
-        .o_captured_data(o_captured_data)
+        .o_captured_data(captured_data),
+        .o_data_valid(valid_mac),
+        .o_buffer_data(buffer_data),
+        .o_array_data(array_data)
     );
 
     // Instantiate mac_checker
     mac_checker #(
-        .DATA_WIDTH(64),
-        .CTRL_WIDTH(8),
-        .FCS_WIDTH(32)
-    ) mac_checker_inst (
+        .DATA_WIDTH(DATA_WIDTH),
+        .CTRL_WIDTH(CTRL_WIDTH),
+        .FCS_WIDTH(FCS_WIDTH),
+        .IDLE_CODE(IDLE_CODE),
+        .START_CODE(START_CODE),
+        .TERM_CODE(TERM_CODE),
+        .PREAMBLE_CODE(PREAMBLE_CODE),
+        .SFD_CODE(SFD_CODE),
+        .DST_ADDR_CODE(DST_ADDR_CODE),
+        .SRC_ADDR_CODE(SRC_ADDR_CODE)
+    ) dut_checker_mac (
         .clk(clk),
-        .i_rst(~i_rst_n),
-        .i_rx_data(o_captured_data),
-        .i_rx_fcs(32'h0),       // Placeholder for FCS input
+        .i_rst_n(i_rst_n),
+        .i_rx_data(buffer_data),
+        .i_rx_array_data(array_data),
+        .i_rx_ctrl(o_mii_valid),
+        .i_data_valid(valid_mac),
         .preamble_error(preamble_error),
         .fcs_error(fcs_error),
         .header_error(header_error),
-        .payload_error(mac_payload_error),
-        .o_data_valid(o_data_valid)
+        .payload_error(payload_error_mac)
     );
 
     // Testbench logic
@@ -133,7 +161,7 @@ module tb_mac_mii_checker;
     // Monitor Outputs
     initial begin
         $monitor("Time: %0t | MII Data: %h | Valid: %b | Preamble Err: %b | FCS Err: %b | Header Err: %b | Payload Err: %b",
-                 $time, o_mii_data, o_mii_valid, preamble_error, fcs_error, header_error, mac_payload_error);
+                 $time, o_mii_data, o_mii_valid, preamble_error, fcs_error, header_error, payload_error_mac);
     end
 
     // Task to preload the payload array

@@ -100,7 +100,7 @@ module MII_gen
                 next_valid = 1'b1                                                                                       ;
                 if(counter >= packet_length - 8) begin //PAYLOAD_LENGTH >= 46
                     if( (packet_length % 8) == 0) begin
-                        next_tx_data = register[8*counter +: 64]                                                        ;
+                        next_tx_data = i_register[8*counter +: 64]                                                        ;
 
                         next_tx_control = 8'h00                                                                         ;
                         next_counter = 8                                                                                ;
