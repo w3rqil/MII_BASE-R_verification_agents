@@ -18,7 +18,7 @@ module mac_checker #
     input logic                         clk,
     input logic                         i_rst_n,
     input logic [DATA_WIDTH-1:0]        i_rx_data [0:255],
-    input logic [MAX_FRAME_SIZE-1:0]    i_rx_array_data,
+    input logic [MAX_FRAME_SIZE*8-1:0]  i_rx_array_data,
     input logic [CTRL_WIDTH-1:0]        i_rx_ctrl,
     input logic                         i_data_valid,
     output logic                        preamble_error,
@@ -56,7 +56,7 @@ module mac_checker #
 
     initial begin
         // Abrir archivo de log
-        log_file = $fopen("D:/Documentos/FACULTAD/Laboratorio_de_Comunicaciones_Digitales/mac_checker.log", "w");
+        log_file = $fopen("D:/Escritorio/mac_checker.log", "w");
         if (log_file == 0) begin
             $display("Error: No se pudo abrir el archivo de log.");
             $finish;
@@ -174,9 +174,17 @@ module mac_checker #
             $fdisplay(log_file, "----> FCS <----");
             $fdisplay(log_file, "FCS: %h", fcs);
             calculated_fcs = calculate_crc32(i_rx_array_data, payload_counter + 14);
-            $fdisplay(log_file, "CALCULATED FCS: %h", calculated_fcs);
-            calculated_crc32_v2 = calculate_crc32_v2(i_rx_array_data, payload_counter + 14);
-            $fdisplay(log_file, "CALCULATED FCS V2: %h", calculated_crc32_v2);
+            //$fdisplay(log_file, "CALCULATED FCS: %h", calculated_fcs);
+            calculated_crc32_v2 = calculate_crc32_v2(i_rx_array_data, payload_counter + 18);
+            $fdisplay(log_file, "CALCULATED FCS: %h", calculated_crc32_v2);
+            //$fdisplay(log_file, "CAlCULATED FCS V3: %h", calculate_crc32_v3(i_rx_array_data, payload_counter + 24));
+            
+            if(fcs == calculated_crc32_v2) begin
+                $fdisplay(log_file, "FCS OK");
+            end else begin
+                fcs_error <= 'd1;
+                $fdisplay(log_file, "ERROR: FCS %h - CRC_CALCULATE: %0h", fcs, calculated_crc32_v2);
+            end
 
             counter = counter + 1;
         end else begin
@@ -196,7 +204,7 @@ module mac_checker #
     end
 
     function automatic logic [31:0] calculate_crc32(
-        input logic [MAX_FRAME_SIZE-1:0] frame_data,
+        input logic [MAX_FRAME_SIZE*8-1:0] frame_data,
         input integer frame_size
     );
 
@@ -211,9 +219,9 @@ module mac_checker #
 
         // Recorrer bit a bit el frame
         for (i = 64; i < frame_size * 8; i = i + 1) begin
-            logic bit_in = frame_data[(frame_size * 8) - 1 - i] ^ crc_reg[31];
+            logic bit_in = frame_data[i] ^ crc_reg[31];
             crc_reg = (crc_reg << 1) | bit_in;
-        
+
             if (bit_in) begin
                 crc_reg = crc_reg ^ CRC_POLYNOMIAL;
             end
@@ -226,29 +234,30 @@ module mac_checker #
 
     function automatic logic [31:0] calculate_crc32_v2
     (
-        input logic [MAX_FRAME_SIZE-1:0] frame_data,
+        input logic [MAX_FRAME_SIZE*8-1:0] frame_data,
         input integer frame_size
     );
 
         logic [31:0] next_crc;
-        logic [63:0] data_xor;
+        logic [31:0] data_xor;
         int i, j;
 
         next_crc = 32'hFFFFFFFF;
+        $display("FRAME SIZE: %h", frame_size);
 
-        for(i = 64; i < (frame_size*8); i = i + 64) begin
-            logic [63:0] next_frame_out;
-            next_frame_out = frame_data[i +: 64];
-            //$fdisplay(log_file, "FRAME OUT: %h", next_frame_out);
+        for(i = 64; i < (frame_size*8); i = i + 8) begin
+            logic [7:0] next_frame_out;
+            next_frame_out = frame_data[i +: 8];
+            $display("FRAME CHECKER: %h", next_frame_out);
 
             if (i == 64) begin
-                data_xor = {32'hFFFFFFFF, 32'b0} ^ next_frame_out;
+                data_xor = 32'hFFFFFFFF ^ {next_frame_out, 24'b0};
             end else begin
-                data_xor = {next_crc, 32'b0} ^ next_frame_out;
+                data_xor = next_crc ^ {next_frame_out, 24'b0};
             end
             
-            for (j = 0; j < 64; j = j + 1) begin
-                if (data_xor[63]) begin
+            for (j = 0; j < 32; j = j + 1) begin
+                if (data_xor[31]) begin
                     data_xor = (data_xor << 1) ^ 32'h04C11DB7;
                 end else begin
                     data_xor = (data_xor << 1);
@@ -259,6 +268,42 @@ module mac_checker #
         end
         
         return next_crc;
+    endfunction
+    
+    function automatic logic [31:0] calculate_crc32_v3(
+        input logic [MAX_FRAME_SIZE*8-1:0] frame_data,
+        input integer frame_size
+    );
+        // Polinomio CRC-32 (IEEE 802.3)
+        localparam logic [31:0] CRC_POLYNOMIAL = 32'h04C11DB7;
+
+        logic [31:0] crc_reg;
+        integer i;
+    
+        // Inicialización del CRC con 0xFFFFFFFF
+        crc_reg = 32'hFFFFFFFF;
+    
+        // Recorrer byte a byte el frame
+        for (i = 8; i < frame_size; i = i + 1) begin
+            logic [7:0] byte_in = frame_data[i*8 +: 8];
+
+            // Loggear cada byte procesado
+            $fdisplay(log_file, "Processing Byte Index: %0d, Value: %h", i, byte_in);
+
+            // XOR del byte con los 8 bits más bajos del CRC
+            crc_reg = crc_reg ^ (byte_in << 24);
+
+            // Procesar los 8 bits del byte usando el polinomio
+            repeat (8) begin
+                if (crc_reg[31])
+                    crc_reg = (crc_reg << 1) ^ CRC_POLYNOMIAL;
+                else
+                    crc_reg = (crc_reg << 1);
+            end
+        end
+
+        // Complemento final
+        return ~crc_reg;
     endfunction
 
 
