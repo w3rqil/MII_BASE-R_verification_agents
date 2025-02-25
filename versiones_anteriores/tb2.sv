@@ -3,7 +3,7 @@
 module tb2;
 
     // Parameters
-    localparam PAYLOAD_LENGTH   = 128;
+    localparam PAYLOAD_LENGTH   = 32;
     localparam CLK_PERIOD       = 10;  // 100 MHz clock
     localparam PAYLOAD_MAX_SIZE = 1500;
     localparam DATA_WIDTH       = 64;
@@ -117,7 +117,7 @@ module tb2;
         i_src_address = 48'h123456789ABC;   // Example source address
         i_eth_type = 16'h0800;              
         i_payload_length = PAYLOAD_LENGTH;
-        i_interrupt = 8'd0;                // No interrupt
+        i_interrupt = 8'd0;                // NO PADDING
         
         // // Initialize payload data
         // i_payload[0] = 8'hDE;
@@ -142,7 +142,7 @@ module tb2;
                             //   8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                             //   8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE,
                             //   8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE }); // Preload payload
-        i_payload_length = 8; // Payload length = 6 bytes
+        // i_payload_length = 8; // Payload length = 6 bytes
         i_start = 1; // Trigger frame generation
         repeat (2000)@(posedge clk);
         i_start = 0; // Deassert start

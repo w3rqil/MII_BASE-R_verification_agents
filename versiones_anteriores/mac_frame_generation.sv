@@ -81,7 +81,7 @@ module mac_frame_generator #(
             next_done = 1'b0                                                                                                ; //lower done flag
             // Prepare header: Destination + Source + EtherType 
             // header_shift_reg = {i_dest_address, i_src_address, i_eth_type}                                      ;
-            header_shift_reg = {i_eth_type, i_src_address, i_dest_address}                                                  ;
+            header_shift_reg = {i_payload_length, i_src_address, i_dest_address}                                                  ;
             //general_shift_reg <= {header_shift_reg, }
     
             //prepare payload
