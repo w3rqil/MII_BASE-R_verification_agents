@@ -126,7 +126,6 @@ module mac_frame_generator #(
                 //if((i<= i_eth_type*8)) begin 
                     
                     next_frame_out = gen_shift_reg [i +: 8]                                                         ;
-                    $display("FRAME GENERATOR: %h", next_frame_out);
                 
                     // crc calc 
                     if(i==0)begin   
@@ -145,6 +144,7 @@ module mac_frame_generator #(
                     end
                     
                     next_crc = ~data_xor[31:0]                                                                              ;
+                    $display("Bit %d: FRAME GENERATOR: %h   CRC GENERATOR: %h", i, next_frame_out, next_crc);
                     
 
                 //end

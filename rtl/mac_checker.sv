@@ -152,7 +152,7 @@ module mac_checker #
                     payload_counter = payload_counter + 1;
                 end else begin
                     $fdisplay(log_file, "TERMINATION CODE %h", current_byte);
-                    payload_counter = payload_counter - 5; 
+                    payload_counter = payload_counter - 4; 
                     // 1 byte term code y 4 de FCS
                     fcs = i_rx_array_data[(k - 32) +: 32];
                     break;
@@ -175,7 +175,7 @@ module mac_checker #
             $fdisplay(log_file, "FCS: %h", fcs);
             calculated_fcs = calculate_crc32(i_rx_array_data, payload_counter + 14);
             //$fdisplay(log_file, "CALCULATED FCS: %h", calculated_fcs);
-            calculated_crc32_v2 = calculate_crc32_v2(i_rx_array_data, payload_counter + 18);
+            calculated_crc32_v2 = calculate_crc32_v2(i_rx_array_data, payload_counter + 22);
             $fdisplay(log_file, "CALCULATED FCS: %h", calculated_crc32_v2);
             //$fdisplay(log_file, "CAlCULATED FCS V3: %h", calculate_crc32_v3(i_rx_array_data, payload_counter + 24));
             
@@ -248,7 +248,6 @@ module mac_checker #
         for(i = 64; i < (frame_size*8); i = i + 8) begin
             logic [7:0] next_frame_out;
             next_frame_out = frame_data[i +: 8];
-            $display("FRAME CHECKER: %h", next_frame_out);
 
             if (i == 64) begin
                 data_xor = 32'hFFFFFFFF ^ {next_frame_out, 24'b0};
@@ -265,6 +264,7 @@ module mac_checker #
             end
             
             next_crc = ~data_xor[31:0];
+            $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
         end
         
         return next_crc;
