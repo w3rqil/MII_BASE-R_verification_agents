@@ -129,16 +129,23 @@ module mac_checker #
             length_type = i_rx_array_data[160 +: 16];
             $fdisplay(log_file, "LENGTH_TYPE: %h", length_type);
 
-            if(length_type < 1500) begin
+            if(length_type < 1500 && length_type >= 46) begin
                 payload_size = length_type;
-            end else begin 
+            end else if(length_type < 46) begin 
+                payload_size = 46;
+            end else begin
                 payload_size = -1;
             end
 
             // Verificar el payload del frame
             $fdisplay(log_file, "----> PAYLOAD <----");
             if (payload_size > 1 && payload_size < 1500) begin
-                $fdisplay(log_file, "PAYLOAD SIZE: %d", payload_size);
+                if(payload_size >= 46) begin
+                    $fdisplay(log_file, "PAYLOAD SIZE: %d", payload_size);
+                end
+                else begin
+                    $fdisplay(log_file, "ERROR: LENGTH FIELD %d < 46", payload_size);
+                end
             end else begin
                 $fdisplay(log_file, "[PAYLOAD SIZE]: XXX");
             end
@@ -147,6 +154,7 @@ module mac_checker #
             for(int k = 176; k < 1500; k = k+8) begin
                 logic [7:0] current_byte;
                 current_byte = i_rx_array_data[k +: 8]; 
+                // $fdisplay(log_file, "BYTE %d: %h Counter %d", k, current_byte, payload_counter);
 
                 if(current_byte != TERM_CODE) begin
                     payload_counter = payload_counter + 1;
@@ -161,13 +169,16 @@ module mac_checker #
             
             $fdisplay(log_file, "PAYLOAD COUNTER: %d", payload_counter);
 
-            if(payload_size > 1 && payload_size < 1500) begin
+            if(payload_counter >= 46 && payload_counter <= 1500) begin 
                 if(payload_counter == payload_size) begin
                     $fdisplay(log_file, "PAYLOAD OK");
                 end else begin
                     payload_error <= 'd1;
-                    $fdisplay(log_file, "ERROR: PAYLOAD %d", payload_counter);
+                    $fdisplay(log_file, "ERROR: PAYLOAD %d ", payload_counter);
                 end
+            end
+            else begin
+                $fdisplay(log_file, "ERROR: PAYLOAD %d < 46", payload_counter);
             end
            
             // Verificar FCS

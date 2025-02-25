@@ -3,7 +3,7 @@
 module tb2;
 
     // Parameters
-    localparam PAYLOAD_LENGTH   = 32;
+    localparam PAYLOAD_LENGTH   = 4;
     localparam CLK_PERIOD       = 10;  // 100 MHz clock
     localparam PAYLOAD_MAX_SIZE = 1500;
     localparam DATA_WIDTH       = 64;
@@ -39,7 +39,7 @@ module tb2;
     wire valid_mac;
     logic [DATA_WIDTH-1:0] captured_data;
     logic [DATA_WIDTH-1:0] buffer_data[0:255];
-    logic [(PAYLOAD_LENGTH + 50) * 8 -1:0] array_data;
+    logic [(PAYLOAD_MAX_SIZE + 50) * 8 -1:0] array_data;
 
     // Clock generation
     initial clk = 0;

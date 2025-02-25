@@ -122,7 +122,7 @@ module tb_mac_mii_checker;
         i_interrupt = 8'd0;                 // No interrupt
 
         // Initialize payload data
-        preload_payload(8, '{8'hDE, 8'hAD, 8'hBE, 8'hEF, 8'hCA, 8'hFE, 8'hBA, 8'hBE}); // Example payload
+        preload_payload(10, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE}); // Example payload
 
         // Reset the system
         #20;
@@ -166,8 +166,8 @@ module tb_mac_mii_checker;
 
     // Task to preload the payload array
     task preload_payload(input int len, input byte payload_data[]);
-        for (int i = 0; i < len; i++) begin
-            i_payload[i] = payload_data[i];
+        for (int i = 0; i < PAYLOAD_LENGTH; i++) begin
+            i_payload[i] = payload_data[i % len];
         end
     endtask
 
