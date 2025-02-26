@@ -10,7 +10,7 @@ module mac_mii_top #(
     input wire [47:0]  i_src_address                            , // Source MAC address
     input wire [15:0]  i_eth_type                               , // EtherType
     input wire [15:0]  i_payload_length                         ,
-    input wire [7:0]   i_payload         [PAYLOAD_LENGTH-1:0]   ,
+    input wire [7:0]   i_payload         [PAYLOAD_MAX_SIZE-1:0]   ,
     input wire [7:0]   i_interrupt                              ,
 
     output wire        o_txValid                                ,

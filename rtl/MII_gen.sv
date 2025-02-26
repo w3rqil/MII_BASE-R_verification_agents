@@ -83,7 +83,7 @@ module MII_gen
                 next_tx_control = 8'hFF                                                                                 ;
                 //outValid = 1'b0;                                                                      
                 if ((counter >= 12)) begin                                                                      
-                    next_tx_data = {i_register[55:8], START_CODE}                                                       ;
+                    next_tx_data = {i_register[63:8], START_CODE}                                                       ;
                     next_tx_control = 8'h01                                                                             ;
 
                     next_counter = 8                                                                                    ;

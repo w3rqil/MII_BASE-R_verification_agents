@@ -28,7 +28,7 @@ module tb_mac_mii_checker;
     reg [47:0] i_src_address;
     reg [15:0] i_eth_type;
     reg [15:0] i_payload_length;
-    reg [7:0] i_payload[PAYLOAD_LENGTH-1:0];
+    reg [7:0] i_payload[PAYLOAD_MAX_SIZE-1:0];
     reg [7:0] i_interrupt;
     wire [63:0] o_mii_data;
     wire [7:0] o_mii_valid;
@@ -119,6 +119,11 @@ module tb_mac_mii_checker;
         i_src_address = 48'h123456789ABC;   // Example source address
         i_eth_type = 16'h0800;              // IP protocol
         i_payload_length = PAYLOAD_LENGTH;
+
+        for(int i = 0; i < PAYLOAD_MAX_SIZE; i = i + 1) begin
+            i_payload[i] = 8'b0;
+        end
+
         i_interrupt = 8'd0;                 // No interrupt
 
         // Initialize payload data
@@ -132,23 +137,33 @@ module tb_mac_mii_checker;
         $display("Starting Test Case 1: Simple Frame Generation");
         simulate_frame(8);
         #200;
+        @(posedge valid_mac);
 
         // Test Case 2: Full Payload
-        preload_payload(64, '{default: 8'hAA}); // Preload payload with 0xAA
+        preload_payload(64, {8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA,
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA,
+                            8'hAA, 8'hAA, 8'hAA, 8'hAA}); // Preload payload with 0xAA
         $display("Starting Test Case 2: Full Payload");
         simulate_frame(64);
         #200;
+        @(posedge valid_mac);
 
         // Test Case 3: Interruption Error
         preload_payload(16, '{8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF, 8'h11, 8'h22, 8'h33,
                               8'h44, 8'h55, 8'h66, 8'h77, 8'h88, 8'h99, 8'hAA, 8'hBB});
-        i_interrupt = 8'd1; // Simulate interrupt
+        i_interrupt = 8'd1; // Simulate interrupt: Fixed payload
         $display("Starting Test Case 3: Interruption Error");
         simulate_frame(16);
         #200;
+        @(posedge valid_mac);
 
         // Test Case 4: Invalid Frame
-        preload_payload(6, '{8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'h06}); // Too short
+        preload_payload(6, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF}); // Too short
+        i_interrupt = 8'd2; // Simulate interrupt: No padding
         $display("Starting Test Case 4: Invalid Frame");
         simulate_frame(6);
         #200;
@@ -160,21 +175,30 @@ module tb_mac_mii_checker;
 
     // Monitor Outputs
     initial begin
-        $monitor("Time: %0t | MII Data: %h | Valid: %b | Preamble Err: %b | FCS Err: %b | Header Err: %b | Payload Err: %b",
-                 $time, o_mii_data, o_mii_valid, preamble_error, fcs_error, header_error, payload_error_mac);
+        // $monitor("Time: %0t | MII Data: %h | Valid: %b | Preamble Err: %b | FCS Err: %b | Header Err: %b | Payload Err: %b",
+        //          $time, o_mii_data, o_mii_valid, preamble_error, fcs_error, header_error, payload_error_mac);
     end
 
     // Task to preload the payload array
     task preload_payload(input int len, input byte payload_data[]);
-        for (int i = 0; i < PAYLOAD_LENGTH; i++) begin
-            i_payload[i] = payload_data[i % len];
+        begin
+            i_payload_length = len;
+
+            for (int i = 0; i < PAYLOAD_MAX_SIZE; i=i+1) begin
+                if(i < len) begin
+                    i_payload[i] = payload_data[i];
+                    $display("I: %h", i);
+                end
+                else begin
+                    i_payload[i] = 8'h00;
+                end
+            end
         end
     endtask
 
     // Task to simulate frame transmission
     task simulate_frame(input int payload_length);
         begin
-            i_payload_length = payload_length;
             i_start = 1; // Start frame generation
             repeat (2) @(posedge clk);
             i_start = 0; // Stop frame generation
