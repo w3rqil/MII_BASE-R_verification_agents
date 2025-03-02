@@ -1,5 +1,7 @@
 `timescale 1ns/100ps
 
+`define SYNTHESIS
+
 module mii_checker 
 #(
     parameter int DATA_WIDTH = 64,
@@ -20,13 +22,14 @@ module mii_checker
     output logic [DATA_WIDTH-1:0] o_captured_data,
     output logic                  o_data_valid,
     output logic [DATA_WIDTH-1:0] o_buffer_data [0:256-1],
-    output logic [1546*8-1:0]     o_array_data
+    output logic [MAX_FRAME_SIZE*8-1:0]     o_array_data
 );
 
     // Constantes de validación
     localparam int MIN_PAYLOAD_BYTES = 46;
     localparam int MAX_PAYLOAD_BYTES = 1500;
     localparam int MAX = MIN_PAYLOAD_BYTES + MAX_PAYLOAD_BYTES;
+    localparam int MAX_FRAME_SIZE = 1518;
 
     localparam int MIN_INTERGAP = 12; 
     localparam int MAX_INTERGAP = 40;

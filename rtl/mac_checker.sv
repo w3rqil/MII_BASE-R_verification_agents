@@ -129,7 +129,7 @@ module mac_checker #
             length_type = i_rx_array_data[160 +: 16];
             $fdisplay(log_file, "LENGTH_TYPE: %h", length_type);
 
-            if(length_type < 1500 && length_type >= 46) begin
+            if(length_type <= 1500 && length_type >= 46) begin
                 payload_size = length_type;
             end else if(length_type < 46) begin 
                 payload_size = 46;
@@ -139,7 +139,7 @@ module mac_checker #
 
             // Verificar el payload del frame
             $fdisplay(log_file, "----> PAYLOAD <----");
-            if (payload_size > 1 && payload_size < 1500) begin
+            if (payload_size > 1 && payload_size <= 1500) begin
                 if(payload_size >= 46) begin
                     $fdisplay(log_file, "PAYLOAD SIZE: %d", payload_size);
                 end
@@ -151,10 +151,10 @@ module mac_checker #
             end
                 
             // Contar Bytes de payload 
-            for(int k = 176; k < 1500; k = k+8) begin
+            for(int k = 176; k < 1518*8; k = k+8) begin
                 logic [7:0] current_byte;
                 current_byte = i_rx_array_data[k +: 8]; 
-                // $fdisplay(log_file, "BYTE %d: %h Counter %d", k, current_byte, payload_counter);
+                $fdisplay(log_file, "BYTE %d: %h Counter %d", k, current_byte, payload_counter);
 
                 if(current_byte != TERM_CODE) begin
                     payload_counter = payload_counter + 1;
@@ -254,7 +254,7 @@ module mac_checker #
         int i, j;
 
         next_crc = 32'hFFFFFFFF;
-        $display("FRAME SIZE: %h", frame_size);
+        // $display("FRAME SIZE: %h", frame_size);
 
         for(i = 64; i < (frame_size*8); i = i + 8) begin
             logic [7:0] next_frame_out;
@@ -275,7 +275,7 @@ module mac_checker #
             end
             
             next_crc = ~data_xor[31:0];
-            $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
+            // $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
         end
         
         return next_crc;

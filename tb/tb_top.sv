@@ -16,9 +16,6 @@ module tb_mac_mii_checker;
     localparam SFD_CODE         = 8'hD5;
     localparam DST_ADDR_CODE    = 48'hFFFFFFFFFFFF;
     localparam SRC_ADDR_CODE    = 48'h123456789ABC;
-    localparam int MIN_PAYLOAD_BYTES = 46;
-    localparam int MAX_PAYLOAD_BYTES = 1500;
-    localparam int MAX = MIN_PAYLOAD_BYTES + MAX_PAYLOAD_BYTES;
 
     // Signals
     reg clk;
@@ -26,12 +23,11 @@ module tb_mac_mii_checker;
     reg i_start;
     reg [47:0] i_dest_address;
     reg [47:0] i_src_address;
-    reg [15:0] i_eth_type;
     reg [15:0] i_payload_length;
-    reg [7:0] i_payload[PAYLOAD_MAX_SIZE-1:0];
-    reg [7:0] i_interrupt;
+    reg [7:0] i_payload [PAYLOAD_MAX_SIZE-1:0];
+    reg [7:0] i_mode;
     wire [63:0] o_mii_data;
-    wire [7:0] o_mii_valid;
+    wire [7:0] o_mii_ctrl;
     wire valid;
 
     logic other_error, payload_error, intergap_error;
@@ -39,7 +35,7 @@ module tb_mac_mii_checker;
     wire valid_mac;
     logic [DATA_WIDTH-1:0] captured_data;
     logic [DATA_WIDTH-1:0] buffer_data[0:255];
-    logic [650-1:0] array_data;
+    logic [(PAYLOAD_MAX_SIZE + 18)*8 - 1:0] array_data;
 
     // Clock generation
     initial clk = 0;
@@ -55,13 +51,12 @@ module tb_mac_mii_checker;
         .i_start(i_start),
         .i_dest_address(i_dest_address),
         .i_src_address(i_src_address),
-        .i_eth_type(i_eth_type),
         .i_payload_length(i_payload_length),
         .i_payload(i_payload),
-        .i_interrupt(i_interrupt),
+        .i_mode(i_mode),
         .o_txValid (valid),
         .o_mii_data(o_mii_data),
-        .o_mii_valid(o_mii_valid)
+        .o_mii_ctrl(o_mii_ctrl)
     );
 
     // Instantiate mii_checker
@@ -75,7 +70,7 @@ module tb_mac_mii_checker;
         .clk(clk),
         .i_rst_n(i_rst_n),
         .i_tx_data(o_mii_data),
-        .i_tx_ctrl(o_mii_valid),
+        .i_tx_ctrl(o_mii_ctrl),
         .payload_error(payload_error),
         .intergap_error(intergap_error),
         .other_error(other_error),
@@ -102,7 +97,7 @@ module tb_mac_mii_checker;
         .i_rst_n(i_rst_n),
         .i_rx_data(buffer_data),
         .i_rx_array_data(array_data),
-        .i_rx_ctrl(o_mii_valid),
+        .i_rx_ctrl(o_mii_ctrl),
         .i_data_valid(valid_mac),
         .preamble_error(preamble_error),
         .fcs_error(fcs_error),
@@ -117,14 +112,8 @@ module tb_mac_mii_checker;
         i_start = 0;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
-        i_eth_type = 16'h0800;              // IP protocol
         i_payload_length = PAYLOAD_LENGTH;
-
-        for(int i = 0; i < PAYLOAD_MAX_SIZE; i = i + 1) begin
-            i_payload[i] = 8'b0;
-        end
-
-        i_interrupt = 8'd0;                 // No interrupt
+        i_mode = 8'd0;                 // Normal mode
 
         // Initialize payload data
         preload_payload(10, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE}); // Example payload
@@ -155,18 +144,27 @@ module tb_mac_mii_checker;
         // Test Case 3: Interruption Error
         preload_payload(16, '{8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF, 8'h11, 8'h22, 8'h33,
                               8'h44, 8'h55, 8'h66, 8'h77, 8'h88, 8'h99, 8'hAA, 8'hBB});
-        i_interrupt = 8'd1; // Simulate interrupt: Fixed payload
-        $display("Starting Test Case 3: Interruption Error");
+        i_mode = 8'd1; // Fixed payload mode
+        $display("Starting Test Case 3: Fixed payload data");
         simulate_frame(16);
         #200;
         @(posedge valid_mac);
 
         // Test Case 4: Invalid Frame
         preload_payload(6, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF}); // Too short
-        i_interrupt = 8'd2; // Simulate interrupt: No padding
+        i_mode = 8'd2; // No padding mode
         $display("Starting Test Case 4: Invalid Frame");
         simulate_frame(6);
         #200;
+        @(posedge valid_mac);
+
+        // Test Case 5: Max size payload
+
+        $display("Starting Test Case 5: Max size payload");
+        i_mode = 8'd1; // Fixed payload modes
+        simulate_frame(1500);
+        #200;
+        @(posedge valid_mac);
 
         // Wait for final outputs and stop simulation
         repeat (50) @(posedge clk);
@@ -176,18 +174,16 @@ module tb_mac_mii_checker;
     // Monitor Outputs
     initial begin
         // $monitor("Time: %0t | MII Data: %h | Valid: %b | Preamble Err: %b | FCS Err: %b | Header Err: %b | Payload Err: %b",
-        //          $time, o_mii_data, o_mii_valid, preamble_error, fcs_error, header_error, payload_error_mac);
+        //          $time, o_mii_data, o_mii_ctrl, preamble_error, fcs_error, header_error, payload_error_mac);
     end
 
     // Task to preload the payload array
     task preload_payload(input int len, input byte payload_data[]);
         begin
-            i_payload_length = len;
-
             for (int i = 0; i < PAYLOAD_MAX_SIZE; i=i+1) begin
                 if(i < len) begin
                     i_payload[i] = payload_data[i];
-                    $display("I: %h", i);
+                    // $display("I: %h", i);
                 end
                 else begin
                     i_payload[i] = 8'h00;
@@ -199,6 +195,7 @@ module tb_mac_mii_checker;
     // Task to simulate frame transmission
     task simulate_frame(input int payload_length);
         begin
+            i_payload_length = payload_length;
             i_start = 1; // Start frame generation
             repeat (2) @(posedge clk);
             i_start = 0; // Stop frame generation

@@ -23,11 +23,11 @@ module MII_gen
     input wire                        i_mii_tx_er                                                                       , // 4'b0000
     input wire  [63:0]                i_mii_tx_d                                                                        ,
     input wire  [PACKET_MAX_BITS-1:0] i_register                                                                        ,
-    input wire  [7: 0]                i_interrupt                                                                       ,
+    input wire  [7: 0]                i_mode                                                                       ,
     input wire  [15:0]                i_payload_length                                                                  ,
     output wire                       o_txValid                                                                         ,
     output wire [63:0]                o_mii_tx_d                                                                        ,
-    output wire [7:0 ]                o_control
+    output wire [7:0 ]                o_mii_tx_c
 );
     localparam PAYLOAD_SIZE  =  (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                               ;
     localparam PACKET_LENGTH = PAYLOAD_SIZE + 26;
@@ -68,7 +68,7 @@ module MII_gen
 
     always @(*) begin : state_machine
         
-        payload_size = (i_payload_length < 46 && i_interrupt != NO_PADDING)? 46 : i_payload_length;
+        payload_size = (i_payload_length < 46 && i_mode != NO_PADDING)? 46 : i_payload_length;
         packet_length = payload_size + 26;
         packet_len_no_padding = i_payload_length + 26;
         
@@ -167,23 +167,18 @@ module MII_gen
             state       <= IDLE                                                                                         ;
             counter     <= 0                                                                                            ;
             valid       <= 0                                                                                            ;
-            //aux_int <= 0;
-            //o_control   <= 0;
-            //o_mii_tx_d  <= 0;
             
         end else begin
             state <= next_state                                                                                         ;
             counter <= next_counter                                                                                     ;
             valid <= next_valid                                                                                         ;
-            //o_mii_tx_d <= next_tx_data;
-            //o_control   <= 8'hFF;
         end 
     end
 
 
     assign o_txValid    = valid             ;
     assign o_mii_tx_d   = next_tx_data      ;
-    assign o_control    = next_tx_control   ;
+    assign o_mii_tx_c   = next_tx_control   ;
 
 
 endmodule
