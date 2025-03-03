@@ -278,7 +278,7 @@ module mac_checker #
             end
             
             next_crc = ~data_xor[31:0];
-            $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
+            // $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
         end
         
         return next_crc;

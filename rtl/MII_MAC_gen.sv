@@ -4,11 +4,13 @@ module mac_mii_top #(
 )(
     input wire         clk                                      ,
     input wire         i_rst_n                                  ,
+    input wire         i_prbs_rst_n,
     input wire         i_start                                  , // Start frame generation
     input wire [47:0]  i_dest_address                           , // Destination MAC address
     input wire [47:0]  i_src_address                            , // Source MAC address
     input wire [15:0]  i_payload_length                         ,
     input wire [7:0]   i_payload         [PAYLOAD_MAX_SIZE-1:0]   ,
+    input wire [7:0]   i_prbs_seed,
     input wire [7:0]   i_mode                              ,
 
     output wire        o_txValid                                ,
@@ -31,11 +33,13 @@ module mac_mii_top #(
     ) mac_gen_inst (
         .clk(clk),
         .i_rst_n(i_rst_n),
+        .i_prbs_rst_n(i_prbs_rst_n),
         .i_start(i_start),
         .i_dest_address(i_dest_address),
         .i_src_address(i_src_address),
         .i_payload_length(i_payload_length),
         .i_payload(i_payload),
+        .i_prbs_seed(i_prbs_seed),
         .i_mode(i_mode),
         .o_register(register),
         .o_done(mac_done)

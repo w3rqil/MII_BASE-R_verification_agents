@@ -13,11 +13,13 @@ module mac_frame_generator #(
 )(                      
     input       logic                                               clk                                                     , //! Clock signal
     input       logic                                               i_rst_n                                                 , //! Active-low reset
+    input       logic                                               i_prbs_rst_n,
     input       logic                                               i_start                                                 , //! Start signal to begin frame generation
     input       logic [47:0]                                        i_dest_address                                          , //! Destination MAC address
     input       logic [47:0]                                        i_src_address                                           , //! Source MAC address
     input       logic [15:0]                                        i_payload_length                                        , //! -----------------------------------------------------------------------
     input       logic [7:0]                                         i_payload        [PAYLOAD_MAX_SIZE-1:0]                 , //! Payload data (preloaded)
+    input       logic [7:0]                                         i_prbs_seed,
     input       logic [7:0]                                         i_mode                                             , //! Set of modes to acomplish different behavors
     output      wire  [(PAYLOAD_MAX_SIZE)*8 + 112+ 32 + 64 -1:0]    o_register                                              , //! register output with the full data
     output      logic                                               o_done                                                    //! Indicates frame generation is complete
@@ -25,7 +27,8 @@ module mac_frame_generator #(
 
     localparam [7:0]
         FIXED_PAYLOAD   = 8'd1,
-        NO_PADDING      = 8'd2;
+        NO_PADDING      = 8'd2,
+        PRBS8           = 8'd3;
 
     localparam [31:0] POLYNOMIAL = 32'h04C11DB7; //polynomial for CRC32 calc    
 
@@ -45,6 +48,9 @@ module mac_frame_generator #(
     reg        next_done                                                                                 ;
     reg [31:0] temp_data                                                                                    ;
 
+    reg [7:0] prbs_char;
+    reg [7:0] next_prbs_char;
+
     reg [31:0] crc                                                                                                ;
     reg [31:0] data_xor                                                                                                     ;
 
@@ -52,6 +58,8 @@ module mac_frame_generator #(
     assign payload_size = (i_payload_length < MIN_PAYLOAD_SIZE && i_mode != NO_PADDING) ? MIN_PAYLOAD_SIZE : i_payload_length;
 
     always_comb begin
+        next_prbs_char = prbs_char;
+
         if(i_start) begin
             next_done = 1'b0                                                                                                ; //lower done flag
             // Prepare header: Destination + Source + EtherType
@@ -67,10 +75,22 @@ module mac_frame_generator #(
                         if(i_mode == FIXED_PAYLOAD) begin //Mode to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
                             payload_reg[(i*8) +:8]  = (i<i_payload_length) ? PAYLOAD_CHAR_PATTERN : 8'h00                                        ;
                         end
+                        else if(i_mode == PRBS8) begin
+                            if(i < i_payload_length) begin
+                                // $display("pos: %d prbs char: %h", i, next_prbs_char);
+                                next_prbs_char = prbs8_gen(next_prbs_char);
+                                payload_reg[(i*8) +:8]  = next_prbs_char;
+                                // $display("payload: %h", payload_reg[(i*8) +:8]);
+                            end
+                            else begin
+                                payload_reg[(i*8) +:8]  = 8'h00;
+                            end
+                        end
                 end
             end else begin // no padding mode
-                // $display("NO_PADDING");
                 for (i=0; i<i_payload_length; i=i+1) begin
+                    // $display("NO_PADDING");
+
                     payload_reg[(i*8) +:8]  = i_payload[i]                                                                     ;
     
                         if(i_mode == FIXED_PAYLOAD) begin //Mode to indicate that the payload  should be PAYLOAD_CHAR_PETTERN
@@ -107,7 +127,7 @@ module mac_frame_generator #(
                     end
                     
                     crc = ~data_xor[31:0]                                                                              ;
-                    $display("bit %d/%d: FRAME GEN: %h   CRC GEN: %h", i, (payload_size*8 + 112) - 8, temp_data, crc);
+                    // $display("bit %d/%d: FRAME GEN: %h   CRC GEN: %h", i, (payload_size*8 + 112) - 8, temp_data, crc);
     
             end
 
@@ -129,12 +149,33 @@ module mac_frame_generator #(
 
         end else begin
             o_done          <= next_done                                                                                    ;
+
+
             // $display("MAC REGISTER: %h", o_register);
             // $display("CRC: %h", crc);
+        end
 
+        if(!i_prbs_rst_n) begin
+            prbs_char <= i_prbs_seed;
+        end
+        else begin
+            prbs_char <= next_prbs_char;
         end
     end
 
     assign o_register = {frame_reg, PREAMBLE_SFD};
+
+    function automatic reg [7:0] prbs8_gen
+    (
+        input [7:0] i_seed
+    );
+        reg [7:0] val                                   ;
+    
+        val = i_seed                                    ;
+        val[0]   = val[1] ^ val[2] ^ val[3] ^ val[7]    ;
+        val[7:1] = val[6:0]                             ;
+    
+        return val;
+    endfunction
 
 endmodule

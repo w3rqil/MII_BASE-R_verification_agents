@@ -20,11 +20,13 @@ module tb_mac_mii_checker;
     // Signals
     reg clk;
     reg i_rst_n;
+    reg i_prbs_rst_n;
     reg i_start;
     reg [47:0] i_dest_address;
     reg [47:0] i_src_address;
     reg [15:0] i_payload_length;
     reg [7:0] i_payload [PAYLOAD_MAX_SIZE-1:0];
+    reg [7:0] i_prbs_seed;
     reg [7:0] i_mode;
     wire [63:0] o_mii_data;
     wire [7:0] o_mii_ctrl;
@@ -48,11 +50,13 @@ module tb_mac_mii_checker;
     ) dut (
         .clk(clk),
         .i_rst_n(i_rst_n),
+        .i_prbs_rst_n(i_prbs_rst_n),
         .i_start(i_start),
         .i_dest_address(i_dest_address),
         .i_src_address(i_src_address),
         .i_payload_length(i_payload_length),
         .i_payload(i_payload),
+        .i_prbs_seed(i_prbs_seed),
         .i_mode(i_mode),
         .o_txValid (valid),
         .o_mii_data(o_mii_data),
@@ -109,9 +113,11 @@ module tb_mac_mii_checker;
     initial begin
         // Initialize inputs
         i_rst_n = 0;
+        i_prbs_rst_n = 0;
         i_start = 0;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
+        i_prbs_seed = 8'hFF;
         i_mode = 8'd0;                 // Normal mode
 
         // Initialize payload data
@@ -163,6 +169,24 @@ module tb_mac_mii_checker;
         i_mode = 8'd1; // Fixed payload modes
         simulate_frame(1500);
         #200;
+        @(posedge valid_mac);
+
+        // Test Case 6: PRBS8 Frame Generation
+        i_mode = 8'd3;
+        i_prbs_rst_n = 1'b1;
+        simulate_frame(64);
+
+        @(posedge valid_mac);
+        simulate_frame(128);
+
+        @(posedge valid_mac);
+
+        i_prbs_rst_n = 1'b0; // reset prbs pattern
+        #20;
+        @(posedge clk);
+        i_prbs_rst_n = 1'b1;
+        simulate_frame(8);
+
         @(posedge valid_mac);
 
         // Wait for final outputs and stop simulation
