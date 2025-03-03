@@ -22,14 +22,15 @@ module mii_checker
     output logic [DATA_WIDTH-1:0] o_captured_data,
     output logic                  o_data_valid,
     output logic [DATA_WIDTH-1:0] o_buffer_data [0:256-1],
-    output logic [MAX_FRAME_SIZE*8-1:0]     o_array_data
+    output logic [(MAX_PACKET_SIZE+3)*8-1:0]     o_array_data
 );
 
     // Constantes de validación
     localparam int MIN_PAYLOAD_BYTES = 46;
-    localparam int MAX_PAYLOAD_BYTES = 1500;
+    localparam int MAX_PAYLOAD_BYTES = 1500;    //1500
     localparam int MAX = MIN_PAYLOAD_BYTES + MAX_PAYLOAD_BYTES;
-    localparam int MAX_FRAME_SIZE = 1518;
+    localparam int MAX_FRAME_SIZE = MAX_PAYLOAD_BYTES + 18; //1518
+    localparam int MAX_PACKET_SIZE = MAX_FRAME_SIZE + 8;    //1526
 
     localparam int MIN_INTERGAP = 12; 
     localparam int MAX_INTERGAP = 40;
@@ -57,7 +58,7 @@ module mii_checker
     int buffer_index, next_buffer_index;
     logic capture_enable;
     logic valid;
-    logic [MAX-1:0] array_data;
+    logic [(MAX_PACKET_SIZE+3)*8-1:0] array_data;
     int array_index;
 
     assign start_data_byte = i_tx_data[7:0];
@@ -147,6 +148,7 @@ module mii_checker
             for (i = 0; i < CTRL_WIDTH; i = i + 1) begin
                 if (!found_start) begin
                     if (i_tx_ctrl[i] == 1'b1 && i_tx_data[i*8 +: 8] == START_CODE) begin
+                        // $display("MII ARRAY DATA: %h", array_data);
                         //next_intergap_counter = intergap_counter + i; 
                         valid = 1'b0;
                         next_payload_counter = payload_counter + (7-i); 
@@ -199,7 +201,7 @@ module mii_checker
                 data_buffer[next_buffer_index] <= i_tx_data;
                 array_data[array_index*64 +: 64] <= i_tx_data;
                 array_index <= array_index + 1;
-            end 
+            end
         end
     end
 

@@ -10,28 +10,18 @@ module MII_gen
         - Frame Check Sequence (CRC): 4 bytes 
     */
     parameter           PAYLOAD_MAX_SIZE = 1500                                                                         , // Maximum payload size in bytes
-    parameter           PACKET_MAX_BITS      = 8*(PAYLOAD_MAX_SIZE + 26)                                                ,
-    parameter   [7:0]   PAYLOAD_CHAR_PATTERN = 8'h55                                                                    ,
-    parameter           PAYLOAD_LENGTH       = 8
+    parameter           PACKET_MAX_BITS      = 8*(PAYLOAD_MAX_SIZE + 26)
 )
 (
     input wire                        clk                                                                               ,
     input wire                        i_rst_n                                                                           ,
-    input wire                        i_mii_tx_en                                                                       ,
-    input wire                        i_valid                                                                           ,
-    input wire                        i_mac_done                                                                        ,
-    input wire                        i_mii_tx_er                                                                       , // 4'b0000
-    input wire  [63:0]                i_mii_tx_d                                                                        ,
     input wire  [PACKET_MAX_BITS-1:0] i_register                                                                        ,
-    input wire  [7: 0]                i_mode                                                                       ,
+    input wire  [7: 0]                i_mode                                                                            ,
     input wire  [15:0]                i_payload_length                                                                  ,
     output wire                       o_txValid                                                                         ,
     output wire [63:0]                o_mii_tx_d                                                                        ,
     output wire [7:0 ]                o_mii_tx_c
 );
-    localparam PAYLOAD_SIZE  =  (PAYLOAD_LENGTH < 46)? 46 : PAYLOAD_LENGTH                                               ;
-    localparam PACKET_LENGTH = PAYLOAD_SIZE + 26;
-    localparam PACKET_LEN_NO_PADDING = PAYLOAD_LENGTH + 26;
     localparam [7:0]
                     IDLE_CODE   = 8'h07,
                     START_CODE  = 8'hFB,
@@ -46,7 +36,6 @@ module MII_gen
                     
     logic [15:0] payload_size;
     logic [15:0] packet_length;
-    logic [15:0] packet_len_no_padding;
 
     logic [3:0] state, next_state;
 
@@ -55,22 +44,13 @@ module MII_gen
     logic [7: 0] next_tx_control                                                                                        ;
                                                                                 
     logic valid, next_valid                                                                                             ;
-                                                                                
-    logic [PACKET_MAX_BITS-1:0]     register                                                                            ;
-    reg     [7:0]                   aux_reg                                                                             ;  // for the remmaining 1 byte
-    reg     [PACKET_MAX_BITS-1:0]   gen_shift_reg                                                                       ; // 16 -> start & eof
 
     integer i;
-    integer aux_int;
-    integer int_counter;
-
-    integer aux_int_sr, byte_counter_int, AUX_TEST                                                                      ;
 
     always @(*) begin : state_machine
         
         payload_size = (i_payload_length < 46 && i_mode != NO_PADDING)? 46 : i_payload_length;
         packet_length = payload_size + 26;
-        packet_len_no_padding = i_payload_length + 26;
         
         next_counter = counter                                                                                          ;
         next_state = state                                                                                              ;
@@ -98,7 +78,7 @@ module MII_gen
             end
             PAYLOAD: begin
                 next_valid = 1'b1                                                                                       ;
-                if(counter >= packet_length - 8) begin //PAYLOAD_LENGTH >= 46
+                if(counter >= packet_length - 8) begin // i_payload_length >= 46
                     if( (packet_length % 8) == 0) begin
                         next_tx_data = i_register[8*counter +: 64]                                                        ;
 
@@ -120,10 +100,7 @@ module MII_gen
                                 next_tx_data[i*8 +: 8] = IDLE_CODE;
                             end
                         end
-                        // next_tx_data = {{8*(8 - (PACKET_LENGTH + 1) % 8){IDLE_CODE}}, 
-                        //                 register[8*(PACKET_LENGTH + 1) - 1 -: 8*((PACKET_LENGTH + 1) % 8)]}             ;
-
-                        // next_tx_control = {{(8 - PACKET_LENGTH % 8){1'b1}}, {PACKET_LENGTH % 8{1'b0}}}                  ;
+                        
                         for(i=0; i<8; i++) begin
                             if((next_tx_data[i*8 +:8] == START_CODE)|| (next_tx_data[i*8 +:8] == EOF_CODE) || (next_tx_data[i*8 +:8] == IDLE_CODE) )begin
                                 next_tx_control[i] = 1'b1;
@@ -136,14 +113,7 @@ module MII_gen
                     end
                 end
                 else begin
-                    next_tx_data = i_register[8*counter +: 64]                                                            ;
-                    // for(i=0; i<64; i++) begin
-                    //     if((next_tx_data[i*8 +:8] == START_CODE)|| (next_tx_data[i*8 +:8] == EOF_CODE) || (next_tx_data[i*8 +:8] == IDLE_CODE))begin
-                    //         next_tx_control[i] = 1'b1;
-                    //     end else begin
-                    //         next_tx_control [i]= 1'b0;
-                    //     end
-                    // end
+                    next_tx_data = i_register[8*counter +: 64]                                                          ;
                     next_tx_control = 8'h00                                                                             ;
                     next_counter = counter + 8                                                                          ;
                     next_state = PAYLOAD                                                                                ;

@@ -9,8 +9,7 @@ module mac_frame_generator #(
         - Frame Check Sequence (CRC): 4 bytes 
     */
     parameter       PAYLOAD_MAX_SIZE     = 1500                                                                             , //! Maximum payload size in bytes (should be 1514)
-    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                            , //! fixed char patter
-    parameter       PAYLOAD_LENGTH       = 8                                                                                  //! len type - payload length in bytes    
+    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55                                                                              //! fixed char patter
 )(                      
     input       logic                                               clk                                                     , //! Clock signal
     input       logic                                               i_rst_n                                                 , //! Active-low reset
@@ -34,7 +33,7 @@ module mac_frame_generator #(
 
     // Internal registers
     logic [111:0]                         header_reg                                                                  ;   // Shift register for sending preamble + header (192 bits)
-    logic [PAYLOAD_MAX_SIZE*8 + 112 -1:0] frame_reg;                 //! register for PAYLOAD + ADDRESS 
+    logic [(PAYLOAD_MAX_SIZE + 18)*8 -1:0] frame_reg;                 //! register for PAYLOAD + ADDRESS 
 
     // Constants for Ethernet frame
     localparam [63:0] PREAMBLE_SFD     = 64'hD555555555555555                                                               ; // Preamble (7 bytes) + SFD (1 byte)
@@ -87,7 +86,7 @@ module mac_frame_generator #(
             // $display("frame_reg SIN CRC: %h", frame_reg);
             
             //! CRC32 calculation
-            for(i=0; i<(payload_size*8 + 112 ); i= i+8) begin
+            for(i=0; i < ((payload_size + 14) * 8); i= i+8) begin
                     
                     temp_data = frame_reg [i +: 8]                                                         ;
                 
@@ -108,7 +107,7 @@ module mac_frame_generator #(
                     end
                     
                     crc = ~data_xor[31:0]                                                                              ;
-                    // $display("bit %d: FRAME GEN: %h   CRC GEN: %h", i, temp_data, crc);
+                    $display("bit %d/%d: FRAME GEN: %h   CRC GEN: %h", i, (payload_size*8 + 112) - 8, temp_data, crc);
     
             end
 

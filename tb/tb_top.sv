@@ -3,7 +3,6 @@
 module tb_mac_mii_checker;
 
     // Parameters
-    localparam PAYLOAD_LENGTH   = 50;
     localparam PAYLOAD_MAX_SIZE = 1500;
     localparam CLK_PERIOD       = 10;  // 100 MHz clock
     localparam DATA_WIDTH       = 64;
@@ -16,6 +15,7 @@ module tb_mac_mii_checker;
     localparam SFD_CODE         = 8'hD5;
     localparam DST_ADDR_CODE    = 48'hFFFFFFFFFFFF;
     localparam SRC_ADDR_CODE    = 48'h123456789ABC;
+    localparam [7:0] PAYLOAD_CHAR_PATTERN = 8'h55;
 
     // Signals
     reg clk;
@@ -35,7 +35,7 @@ module tb_mac_mii_checker;
     wire valid_mac;
     logic [DATA_WIDTH-1:0] captured_data;
     logic [DATA_WIDTH-1:0] buffer_data[0:255];
-    logic [(PAYLOAD_MAX_SIZE + 18)*8 - 1:0] array_data;
+    logic [(PAYLOAD_MAX_SIZE + 29)*8 - 1:0] array_data;
 
     // Clock generation
     initial clk = 0;
@@ -44,7 +44,7 @@ module tb_mac_mii_checker;
     // Instantiate mac_mii_top (combination of mac_frame_generator and MII_gen)
     mac_mii_top #(
         .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE),
-        .PAYLOAD_LENGTH(PAYLOAD_LENGTH)
+        .PAYLOAD_CHAR_PATTERN(PAYLOAD_CHAR_PATTERN)
     ) dut (
         .clk(clk),
         .i_rst_n(i_rst_n),
@@ -112,7 +112,6 @@ module tb_mac_mii_checker;
         i_start = 0;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
-        i_payload_length = PAYLOAD_LENGTH;
         i_mode = 8'd0;                 // Normal mode
 
         // Initialize payload data

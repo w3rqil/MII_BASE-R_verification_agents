@@ -18,7 +18,7 @@ module mac_checker #
     input logic                         clk,
     input logic                         i_rst_n,
     input logic [DATA_WIDTH-1:0]        i_rx_data [0:255],
-    input logic [MAX_FRAME_SIZE*8-1:0]  i_rx_array_data,
+    input logic [(MAX_PACKET_SIZE+3)*8-1:0]  i_rx_array_data,
     input logic [CTRL_WIDTH-1:0]        i_rx_ctrl,
     input logic                         i_data_valid,
     output logic                        preamble_error,
@@ -35,10 +35,11 @@ module mac_checker #
     localparam int LENGTH_TYPE          = 2;    // HEADER STATE
     localparam int FCS_SIZE             = 4;    // FCS STATE
     localparam int MIN_MAC_CLIENT_DATA  = 46;   // PAYLOAD STATE
-    localparam int MAX_MAC_CLIENT_DATA  = 1504; // PAYLOAD STATE
+    localparam int MAX_MAC_CLIENT_DATA  = 1500; // PAYLOAD STATE
 
     localparam int MIN_FRAME_SIZE       = 64;
     localparam int MAX_FRAME_SIZE       = 1518;
+    localparam int MAX_PACKET_SIZE = MAX_FRAME_SIZE + 8;
 
     logic [15:0] length_type; // 2 bytes
     logic [47:0] sa; // 6 bytes
@@ -83,6 +84,7 @@ module mac_checker #
             payload_size <= 0;
 
             $fdisplay(log_file, "\n=========================================\n");
+            $display("MAC REGISTER  : %h", i_rx_array_data);
 
             // Log del frame actual
             $fdisplay(log_file, "FRAME %d", counter);
@@ -151,10 +153,10 @@ module mac_checker #
             end
                 
             // Contar Bytes de payload 
-            for(int k = 176; k < 1518*8; k = k+8) begin
+            for(int k = 176; k < (MAX_FRAME_SIZE + 12)*8; k = k+8) begin
                 logic [7:0] current_byte;
                 current_byte = i_rx_array_data[k +: 8]; 
-                $fdisplay(log_file, "BYTE %d: %h Counter %d", k, current_byte, payload_counter);
+                // $fdisplay(log_file, "BIT %d: %h Counter %d", k, current_byte, payload_counter);
 
                 if(current_byte != TERM_CODE) begin
                     payload_counter = payload_counter + 1;
@@ -163,6 +165,7 @@ module mac_checker #
                     payload_counter = payload_counter - 4; 
                     // 1 byte term code y 4 de FCS
                     fcs = i_rx_array_data[(k - 32) +: 32];
+                    $fdisplay(log_file, "PAYLOAD COUNTER: %d", payload_counter);
                     break;
                 end
             end
@@ -245,7 +248,7 @@ module mac_checker #
 
     function automatic logic [31:0] calculate_crc32_v2
     (
-        input logic [MAX_FRAME_SIZE*8-1:0] frame_data,
+        input logic [(MAX_PACKET_SIZE+3)*8-1:0] frame_data,
         input integer frame_size
     );
 
@@ -275,7 +278,7 @@ module mac_checker #
             end
             
             next_crc = ~data_xor[31:0];
-            // $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
+            $display("bit %d: FRAME CHECKER: %h   CRC CHECKER: %h", (i-64), next_frame_out, next_crc);
         end
         
         return next_crc;

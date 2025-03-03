@@ -1,7 +1,6 @@
 module mac_mii_top #(
     parameter PAYLOAD_MAX_SIZE = 1500,
-    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55,
-    parameter PAYLOAD_LENGTH = 8
+    parameter [7:0] PAYLOAD_CHAR_PATTERN = 8'h55
 )(
     input wire         clk                                      ,
     input wire         i_rst_n                                  ,
@@ -18,8 +17,6 @@ module mac_mii_top #(
 );
 
     // Signals to connect mac_frame_generator and MII_gen
-    wire        mac_valid       ;
-    wire [63:0] mac_frame_out   ;
     wire        mac_done        ;
     
     wire [(PAYLOAD_MAX_SIZE)*8 + 112+ 32 + 64 -1:0] register;
@@ -30,8 +27,7 @@ module mac_mii_top #(
     // Instantiate mac_frame_generator
     mac_frame_generator #(
         .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE),
-        .PAYLOAD_CHAR_PATTERN(PAYLOAD_CHAR_PATTERN),
-        .PAYLOAD_LENGTH(PAYLOAD_LENGTH)
+        .PAYLOAD_CHAR_PATTERN(PAYLOAD_CHAR_PATTERN)
     ) mac_gen_inst (
         .clk(clk),
         .i_rst_n(i_rst_n),
@@ -47,17 +43,10 @@ module mac_mii_top #(
 
     // Instantiate MII_gen
     MII_gen #(
-        .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE),
-        .PAYLOAD_CHAR_PATTERN(PAYLOAD_CHAR_PATTERN),
-        .PAYLOAD_LENGTH(PAYLOAD_LENGTH)
+        .PAYLOAD_MAX_SIZE(PAYLOAD_MAX_SIZE)
     ) mii_gen_inst (
         .clk(clk),
         .i_rst_n(i_rst_n),
-        .i_mii_tx_en(mac_valid),       // Enable MII when MAC frame is valid
-        .i_valid(mac_valid),
-        .i_mac_done(mac_done),
-        .i_mii_tx_er(1'b0),            // No transmission error in this simulation
-        .i_mii_tx_d(mac_frame_out),    // Frame data from MAC
         .i_register(register),
         .i_mode(i_mode),
         .i_payload_length(i_payload_length),
