@@ -15,8 +15,9 @@
     TEST_6: varios patrones en i_txd, todos validos
     TEST_7: patrones aleatorios
     TEST_8: ejemplo de Idles constantes, del anexo 175A IEEE802.3 (descrambleado)
+    TEST_9: sync header corrupto con los patrones de TEST_8
 */
-`define TEST_5
+`define TEST_9
 
 /*
     INTERRUPT: muchos bloques invalidos interrumpen la simulacion y fallan el test
@@ -63,6 +64,7 @@ module tb_BASER_gen_check;
     logic                               i_enable                        ;   /* Flag to enable frame generation        */
     logic                               i_random                        ;   /* Flag to enable random frame generation */
     logic                               i_tx_test_mode                  ;   /* Flag to enable TX test mode            */
+    logic                               i_corrupt_header                ;   /* First bit is 0 and next 4 bits are '1111' */
     // 257b Checker
     logic [TC_WIDTH          - 1 : 0]   i_rx_xcoded                     ;   // Received data
     logic                               i_valid                         ;   // Enable check process. If 0, the outputs don't change.
@@ -170,6 +172,7 @@ module tb_BASER_gen_check;
         i_valid_gen         = 'b000     ;
         i_valid             = 'b0       ;
         i_tx_test_mode      = 'b0       ;
+        i_corrupt_header    = 'b0       ;
         i_random            = 'b0       ;
         i_txd               = 'b0       ;
         i_txc               = 'b0       ;
@@ -445,15 +448,33 @@ module tb_BASER_gen_check;
 
         repeat(35) @(posedge clk);
 
+        `elsif TEST_9
+
+        // Corrupt header
+        i_corrupt_header    = 1'b1                  ;
+        i_enable            = 1'b0                  ;
+        // Flujo constante de Idles
+        i_txd               = 64'h0707070707070707  ;
+        i_txc               = 8'hFF                 ;
+
+        #60                                         ;
+        @(posedge clk)                              ;
+        i_valid         = 1'b1                      ;
+
+        repeat(35) @(posedge clk)                   ;
+
         `endif
 
-        inv_block_no_pattern_count = o_257_inv_sh_count;
+        inv_block_no_pattern_count =  o_257_inv_block_count 
+                                    + o_66_inv_block_count[0]    + o_66_inv_block_count[1]   + o_66_inv_block_count[2]   + o_66_inv_block_count[3]
+                                    - (o_66_inv_pattern_count[0] + o_66_inv_pattern_count[1] + o_66_inv_pattern_count[2] + o_66_inv_pattern_count[3]);
         
         inv_percent  = real'(inv_block_no_pattern_count) / real'(o_257_block_count) * 100;
         // inv_percent  = real'(o_257_inv_block_count)      / real'(o_257_block_count) * 100;
 
         // Display after all tests
         if(inv_block_no_pattern_count == 0) begin
+        // if((o_257_inv_block_count + o_66_inv_block_count[0] + o_66_inv_block_count[1] + o_66_inv_block_count[2] + o_66_inv_block_count[3]) == 0) begin
             // Invalid blocks Not found
             $display("Final Result: TEST PASSED\n");
         end
@@ -476,8 +497,10 @@ module tb_BASER_gen_check;
             $display("Total Blocks Received: %0d", o_66_block_count[i]);
             $display("\t-Data Blocks Received: %0d", o_66_data_count[i]);
             $display("\t-Control Blocks Received: %0d", o_66_ctrl_count[i]);
-            $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
-            $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
+            $display("Invalid Blocks Received: %0d", o_66_inv_format_count[i] + o_66_inv_sh_count[i]);
+            // $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
+            $display("\t-Invalid Pattern: %0d", 0);
+            // $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
             $display("\t-Invalid Format/Block Type: %0d", o_66_inv_format_count[i]);
             $display("\t-Invalid Sync Header ('00' or '11'): %0d\n", o_66_inv_sh_count[i]);
         end
@@ -506,6 +529,7 @@ module tb_BASER_gen_check;
         .i_enable               (i_enable               ),
         .i_random               (i_random               ),
         .i_tx_test_mode         (i_tx_test_mode         ),
+        .i_corrupt_header       (i_corrupt_header       ),
         .i_rst_n                (!i_rst                 ),    // Reset negado
         .clk                    (clk                    )
     );
@@ -524,8 +548,8 @@ module tb_BASER_gen_check;
     ) dut_257b_check (
         .clk                    (clk                    ),
         .i_rst                  (i_rst                  ),
-        // .i_valid                (valid                  ),
-        .i_valid                (i_valid      ),
+        .i_valid                (valid                  ),
+        // .i_valid                (i_valid                ),
         .i_rx_xcoded            (i_rx_xcoded            ),
         .o_rx_coded_0           (o_rx_coded_0           ),
         .o_rx_coded_1           (o_rx_coded_1           ),

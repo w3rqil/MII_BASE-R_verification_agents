@@ -12,7 +12,7 @@ module PCS_generator
 (               
     output logic [NB_FRAME_IN       - 1 : 0] o_tx_coded       /* Output transcoder                      */                                                                                                                                                                                           ,
     output logic [NB_PAYLOAD_OUT + NB_HEADER_OUT - 1 : 0] o_frame[N_PCS_WORDS_OUT - 1 : 0]                                                                                                                                                                                                              ,
-    output logic [1                     : 0] o_valid                                                                                                                                                                                                                                                    ,                         
+    output logic                             o_valid                                                                                                                                                                                                                                                    ,                         
     input  logic [NB_PAYLOAD_OUT    - 1 : 0] i_txd               /* Input data                             */                                                                                                                                                                                           ,
     input  logic [NB_CONTROL_CHAR   - 1 : 0] i_txc               /* Input control byte                     */                                                                                                                                                                                           ,
     input  logic [N_PCS_WORDS_OUT   - 1 : 0] i_data_sel          /* Data selector                          */                                                                                                                                                                                           ,
@@ -20,6 +20,7 @@ module PCS_generator
     input  logic                             i_enable            /* Flag to enable frame generation        */                                                                                                                                                                                           ,
     input  logic                             i_random            /* Flag to enable random frame generation */                                                                                                                                                                                           ,
     input  logic                             i_tx_test_mode      /* Flag to enable TX test mode            */                                                                                                                                                                                           ,
+    input  logic                             i_corrupt_header                                                                                                                                                                                                                                           ,
     input  logic                             i_rst_n             /* Reset                                  */                                                                                                                                                                                           ,    
     input  logic                             clk                 /* Clock                                  */                                                                                                                                                                                             
 
@@ -105,7 +106,7 @@ logic [NB_FRAME_IN        - 1 : 0] transcoder_reg_0 /* Transcoder register */   
 logic [NB_FRAME_IN        - 1 : 0] transcoder_invert_reg_0 /* Transcoder register */                                                                                                                                                                                                                    ;
 logic [                     1 : 0] counter                                                                                                                                                                                                                                                              ;
 logic                              data_block       /*This flag indicates if the block contains data ou control information */                                                                                                                                                                          ;
-logic [                     2 : 0] valid                                                                                                                                                                                                                        ;                                       ;                                                                                                                                                                                                                 
+logic                              valid                                                                                                                                                                                                                        ;                                       ;                                                                                                                                                                                                                 
 
 // Task to generate a PCS frame             
 task automatic generate_frame(              
@@ -210,7 +211,7 @@ task automatic convert_mii(
     int i;
     for(i = 0; i < NB_PAYLOAD_OUT / 8; i = i + 1) begin
         if(i_txc[i]) begin
-            // $display("counter %d", i);
+            $display("counter %d", i);
             case(i_txd[8* (i + 1) -1 -: 8])
                 // Replace MII control bytes with PCS control bytes
                 MII_IDLE  : begin 
@@ -516,11 +517,12 @@ task automatic encode_frame(
         // Control frame with header as 0
         transcoder_hdr = 1'b0                                                                                                                                                                                                                                                                        ;
         data_block = 1'b0                                                                                                                                                                                                                                                                            ;
-        transcoder_control_hdr = {(i_frame_reg_0[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_1[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_2[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_3[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC)}                                                ;
-        transcoder = (i_frame_reg_0[NB_FRAME_OUT-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]} :
-                     (i_frame_reg_1[NB_FRAME_OUT-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]} :
-                     (i_frame_reg_2[NB_FRAME_OUT-1 -: 2] == CTRL_SYNC) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]} :
-                                                                        {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 5 : 0]} ;
+        transcoder_control_hdr = (i_corrupt_header) ? (4'hF) : {(i_frame_reg_0[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_1[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_2[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC), (i_frame_reg_3[NB_FRAME_OUT - 1 -: 2] == DATA_SYNC)}                  ;
+        transcoder = (!transcoder_control_hdr[0]) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]}                                          :
+                     (!transcoder_control_hdr[1]) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]}                                          :
+                     (!transcoder_control_hdr[2]) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]}                                          :
+                     (!transcoder_control_hdr[3]) ? {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 1  : 0], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 5 : 0]}                                          :
+                                                    {transcoder_hdr, transcoder_control_hdr, i_frame_reg_0[NB_PAYLOAD_OUT - 5 : 0 ], i_frame_reg_1[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_2[NB_PAYLOAD_OUT - 1 : 0 ], i_frame_reg_3[NB_PAYLOAD_OUT - 1 : 0]}                                          ;
     end  
     o_transcoder = transcoder                                                                                                                                                                                                                                                                        ;                                                                                                                                                                                                                   ;
 endtask
@@ -573,7 +575,7 @@ always_ff @(posedge clk or negedge i_rst_n)
         frame_invert_reg_3          <= 'b0                                                                                                                                                                                                                                                           ;
         transcoder_reg_0            <= 'b0                                                                                                                                                                                                                                                           ;                                                                                             
         transcoder_invert_reg_0     <= 'b0                                                                                                                                                                                                                                                           ;
-        counter                     <= 'b0                                                                                                                                                                                                                                                           ;                                                       
+        counter                     <= 2'h1                                                                                                                                                                                                                                                           ;                                                       
         valid                       <= 'b0                                                                                                                                                                                                                                                           ;
     end               
     else begin
@@ -632,7 +634,7 @@ always_ff @(posedge clk or negedge i_rst_n)
                     invert_64_frame(frame_invert_reg_1, frame_reg_1)                                                                                                                                                                                                                                ;
                     invert_64_frame(frame_invert_reg_2, frame_reg_2)                                                                                                                                                                                                                                ;
                     invert_64_frame(frame_invert_reg_3, frame_reg_3)                                                                                                                                                                                                                                ;
-                    valid[0]    <= 1'b1                                                                                                                                                                                                                                                             ;
+                    valid      <= 1'b0                                                                                                                                                                                                                                                             ;
                 end
                 else begin
                     // Keep the frame registers
@@ -640,7 +642,7 @@ always_ff @(posedge clk or negedge i_rst_n)
                     frame_reg_1 <= frame_reg_1                                                                                                                                                                                                                                                      ;
                     frame_reg_2 <= frame_reg_2                                                                                                                                                                                                                                                      ;
                     frame_reg_3 <= frame_reg_3                                                                                                                                                                                                                                                      ;
-                    valid[0]    <= 1'b0                                                                                                                                                                                                                                                             ;
+                    valid       <= 1'b0                                                                                                                                                                                                                                                             ;
                 end
             end
             else begin
@@ -656,18 +658,18 @@ always_ff @(posedge clk or negedge i_rst_n)
                     // Encode the frame
                     encode_frame(transcoder_reg_0, frame_reg_0, frame_reg_1, frame_reg_2, frame_reg_3)                                                                                                                                                                                              ;
                     invert_257_frame(transcoder_invert_reg_0, transcoder_reg_0)                                                                                                                                                                                                                     ;
-                    valid[1]    <= 1'b1                                                                                                                                                                                                                                                             ;
+                    valid            <= 1'b1                                                                                                                                                                                                                                                             ;
                 end
                 else begin
                     // Keep the transcoder registers
                     transcoder_reg_0 <= transcoder_reg_0                                                                                                                                                                                                                                            ;
-                    valid[1]         <= 1'b0                                                                                                                                                                                                                                                        ;
+                    valid            <= 1'b0                                                                                                                                                                                                                                                        ;
                 end
             end
             else begin
                 // Keep the transcoder registers
                 transcoder_reg_0 <= transcoder_reg_0                                                                                                                                                                                                                                                ;
-                valid[1]         <= 1'b0                                                                                                                                                                                                                                                            ;
+                valid            <= 1'b0                                                                                                                                                                                                                                                            ;
             end
         end
         else begin
@@ -685,7 +687,7 @@ always_ff @(posedge clk or negedge i_rst_n)
             frame_reg_2      <= {NB_FRAME_OUT / NB_CONTROL_CHAR{CTRL_IDLE}}                                                                                                                                                                                                                         ;
             frame_reg_3      <= {NB_FRAME_OUT / NB_CONTROL_CHAR{CTRL_IDLE}}                                                                                                                                                                                                                         ;
             transcoder_reg_0 <= {NB_FRAME_IN / NB_CONTROL_CHAR{CTRL_IDLE}}                                                                                                                                                                                                                          ;
-            valid            <= 2'b00                                                                                                                                                                                                                                                               ;
+            valid            <= 1'b0                                                                                                                                                                                                                                                               ;
         end             
     end 
            
