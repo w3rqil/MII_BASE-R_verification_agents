@@ -169,11 +169,10 @@ module mac_frame_generator #(
     (
         input [7:0] i_seed
     );
-        reg [7:0] val                                   ;
+        reg [7:0] val                                               ;
     
-        val = i_seed                                    ;
-        val[0]   = val[1] ^ val[2] ^ val[3] ^ val[7]    ;
-        val[7:1] = val[6:0]                             ;
+        val[0]   = i_seed[1] ^ i_seed[2] ^ i_seed[3] ^ i_seed[7]    ;
+        val[7:1] = i_seed[6:0]                                      ;
     
         return val;
     endfunction
