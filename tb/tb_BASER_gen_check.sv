@@ -17,7 +17,7 @@
     TEST_8: ejemplo de Idles constantes, del anexo 175A IEEE802.3 (descrambleado)
     TEST_9: sync header corrupto con los patrones de TEST_8
 */
-`define TEST_9
+`define TEST_5
 
 /*
     INTERRUPT: muchos bloques invalidos interrumpen la simulacion y fallan el test
@@ -70,6 +70,7 @@ module tb_BASER_gen_check;
     logic                               i_valid                         ;   // Enable check process. If 0, the outputs don't change.
     // 66b Checker
     logic [FRAME_WIDTH       - 1 : 0]   i_rx_coded  [TC_BLOCKS - 1 : 0] ;   //64b blocks
+    logic [                    7 : 0]   i_pattern_mode                  ;
 
     /*
     *---------------------OUTPUTS------------------------
@@ -107,6 +108,11 @@ module tb_BASER_gen_check;
     logic [31:0] prev_257_inv_block_count;
     // State counter 
     integer state_count;
+
+    // Pattern check modes
+    localparam NONE  = 8'd0;
+    localparam FIXED = 8'd1;
+    localparam PRBS8 = 8'd2;
 
     // invalid blocks counter but it doesn't count invalid pattern
     logic [31:0] inv_block_no_pattern_count;
@@ -176,6 +182,7 @@ module tb_BASER_gen_check;
         i_random            = 'b0       ;
         i_txd               = 'b0       ;
         i_txc               = 'b0       ;
+        i_pattern_mode      = NONE      ;
 
         state_count         = '0        ;
 
@@ -187,281 +194,34 @@ module tb_BASER_gen_check;
         i_valid_gen     = 2'b11     ;
 
         `ifdef TEST_1
-
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-        #600                        ;
-        @(posedge clk)              ;
-
-        // Set the data sel 0
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b0001   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b0010   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b0011   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b0100   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b1000   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-        i_valid         = 1'b0      ;
-        i_data_sel      = 4'b1111   ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
-
-        // Change the MII input
-        i_valid         = 1'b0                  ;
-        i_enable        = 1'b0                  ;
-        i_txc           = 8'h00                 ;
-        i_txd           = 64'hFFFFFFFFFFFFFFFF  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txd           = 64'hAAAAAAAAAAAAAAAA  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'hFF                 ;
-        i_txd           = 64'h07070707070707FD  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'h01                 ;
-        i_txd           = 64'hAAAAAAAAAAAAAAFB  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'h00                 ;
-        i_txd           = 64'hAAAAAAAAAAAAAAAA  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'hFC                 ;
-        i_txd           = 64'h0707070707FDAAAA  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'hFF                 ;
-        i_txd           = 64'h0707070707070707  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        i_valid         = 1'b0                  ;
-        i_txc           = 8'hFF                 ;
-        i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
+        `include "tests/TEST_1.sv"
 
         `elsif TEST_2
-
-        // Set the data sel 0
-        i_data_sel      = 4'b1111   ;
-        i_valid         = 1'b0      ;
-        repeat(3) @(posedge clk)    ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
+        `include "tests/TEST_2.sv"
 
         `elsif TEST_3
-
-        // Set the data sel 0
-        i_data_sel      = 4'b0000   ;
-        i_valid         = 1'b0      ;
-        repeat(15) @(posedge clk)   ;
-        i_valid         = 1'b1      ;
-
-        #600                        ;
-        @(posedge clk)              ;
+        `include "tests/TEST_3.sv"
 
         `elsif TEST_4
-        
-        // Change the MII input
-        i_enable        = 1'b0                  ;
-        // Set TXC and TXD as Error
-        i_txc           = 8'hFF                 ;
-        i_txd           = 64'hFEFEFEFEFEFEFEFE  ;
-        i_valid         = 1'b0                  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
-        // Set TXD as Idle
-        i_txd           = 64'h0707070707070707  ;
-        i_valid         = 1'b0                  ;
-        repeat(15) @(posedge clk)               ;
-        i_valid         = 1'b1                  ;
-
-        #600                                    ;
-        @(posedge clk)                          ;
+        `include "tests/TEST_4.sv"
 
         `elsif TEST_5
-        
-        // Change the MII input
-        i_enable        = 1'b0                      ;
-        i_valid         = 1'b0                      ;
-        repeat(2) begin
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'hABABABABABABABAB  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hFE                 ;
-            i_txd           = 64'h434343434343FD55  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'h7777777777777777  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hF0                 ;
-            i_txd           = 64'h30303030FD060606  ;
-        end
-
-        @(posedge clk)                              ;
-        i_valid         = 1'b1                      ;
-        
-        repeat(100) begin
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'hABABABABABABABAB  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hFE                 ;
-            i_txd           = 64'h434343434343FD55  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'h7777777777777777  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hF0                 ;
-            i_txd           = 64'h30303030FD060606  ;
-        end
+        `include "tests/TEST_5.sv"
         
         `elsif TEST_6
-
-        // Change the MII input
-        i_enable        = 1'b0                      ;
-        i_valid         = 1'b0                      ;
-        
-        repeat(2) begin
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'hABABABABABABABAB  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hFE                 ;
-            i_txd           = 64'h070707070707FD55  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'h7777777777777777  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hF8                 ;
-            i_txd           = 64'h07070707FD060606  ;
-        end
-
-        @(posedge clk)                              ;
-        i_valid         = 1'b1                      ;
-
-        repeat(100) begin
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'hABABABABABABABAB  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hFE                 ;
-            i_txd           = 64'h070707070707FD55  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'h00                 ;
-            i_txd           = 64'h7777777777777777  ;
-            @(negedge clk)                          ;
-            i_txc           = 8'hF8                 ;
-            i_txd           = 64'h07070707FD060606  ;
-        end
+        `include "tests/TEST_6.sv"
 
         `elsif TEST_7
-
-        i_enable    = 1'b1          ;
-        i_random    = 1'b1          ;
-        i_valid     = 1'b0          ;
-        repeat(15) @(posedge clk)   ;
-        i_valid     = 1'b1          ;
-
-        #600                        ;
-        @(posedge clk)              ;
+        `include "tests/TEST_7.sv"
 
         `elsif TEST_8
-
-        i_enable        = 1'b0                                                                          ;
-        // Flujo constante de Idles
-        i_txd           = 64'h0707070707070707;
-        i_txc           = 8'hFF;
-
-        #60                                                                                             ;
-        @(posedge clk)                                                                                  ;
-        i_valid         = 1'b1                                                                          ;
-
-        repeat(35) @(posedge clk);
+        `include "tests/TEST_8.sv"
 
         `elsif TEST_9
-
-        // Corrupt header
-        i_corrupt_header    = 1'b1                  ;
-        i_enable            = 1'b0                  ;
-        // Flujo constante de Idles
-        i_txd               = 64'h0707070707070707  ;
-        i_txc               = 8'hFF                 ;
-
-        #60                                         ;
-        @(posedge clk)                              ;
-        i_valid         = 1'b1                      ;
-
-        repeat(35) @(posedge clk)                   ;
+        `include "tests/TEST_9.sv"
+        
+        `elsif TEST_10
+        `include "tests/TEST_10.sv"
 
         `endif
 
@@ -473,8 +233,8 @@ module tb_BASER_gen_check;
         // inv_percent  = real'(o_257_inv_block_count)      / real'(o_257_block_count) * 100;
 
         // Display after all tests
-        if(inv_block_no_pattern_count == 0) begin
-        // if((o_257_inv_block_count + o_66_inv_block_count[0] + o_66_inv_block_count[1] + o_66_inv_block_count[2] + o_66_inv_block_count[3]) == 0) begin
+        // if(inv_block_no_pattern_count == 0) begin
+        if((o_257_inv_block_count + o_66_inv_block_count[0] + o_66_inv_block_count[1] + o_66_inv_block_count[2] + o_66_inv_block_count[3]) == 0) begin
             // Invalid blocks Not found
             $display("Final Result: TEST PASSED\n");
         end
@@ -489,18 +249,16 @@ module tb_BASER_gen_check;
         $display("\tBlocks with all 66B Data Blocks received: %0d", o_257_data_count);
         $display("\tBlocks with at least one 66B Control Block received: %0d", o_257_ctrl_count);
         $display("Blocks with SH '0' and next 4 bits '1111' Received: %0d\n", o_257_inv_sh_count);
-        // $display("Invalid Blocks Received: %0d"         , o_257_inv_block_count );
-        // $display("Valid blocks percentage: %.1f%%\n"    , (100 - inv_percent)   );
 
         for(int i = 0; i < TC_BLOCKS; i++) begin
             $display("---64B/66B CHECKER: LINE %0d---\n", i);
             $display("Total Blocks Received: %0d", o_66_block_count[i]);
             $display("\t-Data Blocks Received: %0d", o_66_data_count[i]);
             $display("\t-Control Blocks Received: %0d", o_66_ctrl_count[i]);
-            $display("Invalid Blocks Received: %0d", o_66_inv_format_count[i] + o_66_inv_sh_count[i]);
-            // $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
-            $display("\t-Invalid Pattern: %0d", 0);
-            // $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
+            // $display("Invalid Blocks Received: %0d", o_66_inv_format_count[i] + o_66_inv_sh_count[i]);
+            $display("Invalid Blocks Received: %0d", o_66_inv_block_count[i]);
+            // $display("\t-Invalid Pattern: %0d", 0);
+            $display("\t-Invalid Pattern: %0d", o_66_inv_pattern_count[i]);
             $display("\t-Invalid Format/Block Type: %0d", o_66_inv_format_count[i]);
             $display("\t-Invalid Sync Header ('00' or '11'): %0d\n", o_66_inv_sh_count[i]);
         end
@@ -577,9 +335,10 @@ module tb_BASER_gen_check;
             ) dut_66b_check (
                 .clk                    (clk                        ),
                 .i_rst                  (i_rst                      ),
-                // .i_valid                (valid                      ),
-                .i_valid                (i_valid                    ),
+                .i_valid                (valid                      ),
+                // .i_valid                (i_valid                    ),
                 .i_rx_coded             (i_rx_coded             [i] ),
+                .i_pattern_mode(i_pattern_mode),
                 .o_txd                  (o_txd                  [i] ),
                 .o_txc                  (o_txc                  [i] ),
                 .o_block_count          (o_66_block_count       [i] ),
