@@ -39,6 +39,7 @@ module BASER_66b_checker
     input  logic                        i_rst                       ,   // Asynchronous reset
     input  logic                        i_valid                     ,   // Enable check process. If 0, the outputs don't change
     input  logic    [FRAME_WIDTH-1:0]   i_rx_coded                  ,   // 64b block
+    input  logic    [7:0]               i_pattern_mode              ,
     /*
     *--------OUTPUTS--------
     */
@@ -65,12 +66,21 @@ module BASER_66b_checker
     localparam CTRL_IDLE  = 7'h00;
     localparam CTRL_ERROR = 7'h1E;
 
+    // Pattern check modes
+    localparam NONE  = 8'd0;
+    localparam FIXED = 8'd1;
+    localparam PRBS8 = 8'd2;
+
     // MII Data block
     logic [DATA_WIDTH-1:0] txd;
     logic [DATA_WIDTH-1:0] next_txd;
     // MII Control block
     logic [CTRL_WIDTH-1:0] txc;
     logic [CTRL_WIDTH-1:0] next_txc;
+
+    // PRBS8 character
+    logic [7:0] prbs_char;
+    logic [7:0] next_prbs_char;
 
     // Total blocks counter
     logic [31:0] block_count                ;
@@ -95,10 +105,17 @@ module BASER_66b_checker
     logic [31:0] inv_sh_count               ;
     logic [31:0] next_inv_sh_count          ;
 
+    // Invalid Fixed pattern flag
+    logic inv_fixed_flag;
+    // Invalid PRBS8 pattern flag
+    logic inv_prbs_flag;
+
     // 66b checker valid register
     logic valid;
 
     always @(*) begin
+        next_prbs_char = prbs_char;
+
         next_block_count = block_count + 1'b1;
         next_data_count = data_count;
         next_ctrl_count = ctrl_count;
@@ -106,16 +123,14 @@ module BASER_66b_checker
         next_inv_format_count = inv_format_count;
         next_inv_sh_count = inv_sh_count;
 
+        inv_fixed_flag = 1'b0;
+        inv_prbs_flag = 1'b0;
+
         // 66b block formats
         if(i_rx_coded[HDR_WIDTH - 1 : 0] == 2'b10) begin
 
             // Data block
             next_data_count = data_count + 1'b1;
-
-            // The frame has to be all Data characters
-            if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH] != {8{DATA_CHAR_PATTERN}}) begin
-                next_inv_pattern_count = inv_pattern_count + 1'b1;
-            end
 
             next_txd = i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH];
             next_txc = 8'h00;
@@ -129,9 +144,9 @@ module BASER_66b_checker
         
                 // C7 C6 C5 C4 C3 C2 C1 C0
                 8'h1E: begin
-                    if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] != {8{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] != {8{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
 
                     if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] == {8{CTRL_IDLE}}) begin
                         next_txd = {8{MII_IDLE}};
@@ -148,9 +163,9 @@ module BASER_66b_checker
         
                 // D7 D6 D5 D4 D3 D2 D1 S0
                 8'h78: begin
-                    if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] != {7{DATA_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8] != {7{DATA_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
 
                     next_txd = {i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 8], MII_START};
                     next_txc = 8'h01;
@@ -158,10 +173,10 @@ module BASER_66b_checker
         
                 // Z7 Z6 Z5 Z4 D3 D2 D1 O0
                 8'h4B: begin
-                    if(i_rx_coded[HDR_WIDTH + 8  +: 24] != {3{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[HDR_WIDTH + 32 +:  4] != OSET_CHAR_PATTERN) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8  +: 24] != {3{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[HDR_WIDTH + 32 +:  4] != OSET_CHAR_PATTERN) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -175,9 +190,9 @@ module BASER_66b_checker
                     if(i_rx_coded[HDR_WIDTH + 8 +: 7] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
-                    if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] != {7{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 15] != {7{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
 
                     next_txd[7 : 0] = MII_TERM;
 
@@ -196,10 +211,10 @@ module BASER_66b_checker
         
                 // C7 C6 C5 C4 C3 C2 T1 D0
                 8'h99: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 8] != DATA_CHAR_PATTERN
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] != {6{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 8] != DATA_CHAR_PATTERN
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 22] != {6{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 16 +: 6] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -221,10 +236,10 @@ module BASER_66b_checker
         
                 // C7 C6 C5 C4 C3 T2 D1 D0
                 8'hAA: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 16] != {2{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 29] != {5{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 16] != {2{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 29] != {5{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 24 +: 5] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -246,10 +261,10 @@ module BASER_66b_checker
         
                 // C7 C6 C5 C4 T3 D2 D1 D0
                 8'hB4: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 24] != {3{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] != {4{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 24] != {3{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 36] != {4{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 32 +: 4] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -271,10 +286,10 @@ module BASER_66b_checker
         
                 // C7 C6 C5 T4 D3 D2 D1 D0
                 8'hCC: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 32] != {4{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 43] != {3{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 32] != {4{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 43] != {3{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 40 +: 3] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -296,10 +311,10 @@ module BASER_66b_checker
         
                 // C7 C6 T5 D4 D3 D2 D1 D0
                 8'hD2: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 40] != {5{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 50] != {2{CTRL_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 40] != {5{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 50] != {2{CTRL_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 48 +: 2] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -321,10 +336,10 @@ module BASER_66b_checker
         
                 // C7 T6 D5 D4 D3 D2 D1 D0
                 8'hE1: begin
-                    if(i_rx_coded[HDR_WIDTH + 8 +: 48] != {6{DATA_CHAR_PATTERN}}
-                    || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 57] != CTRL_CHAR_PATTERN) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[HDR_WIDTH + 8 +: 48] != {6{DATA_CHAR_PATTERN}}
+                    // || i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 57] != CTRL_CHAR_PATTERN) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
                     if(i_rx_coded[HDR_WIDTH + 56 +: 1] != '0) begin
                         next_inv_format_count = inv_format_count + 1'b1;
                     end
@@ -346,9 +361,9 @@ module BASER_66b_checker
         
                 // T7 D6 D5 D4 D3 D2 D1 D0
                 8'hFF: begin
-                    if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 2] != {7{DATA_CHAR_PATTERN}}) begin
-                        next_inv_pattern_count = inv_pattern_count + 1'b1;
-                    end
+                    // if(i_rx_coded[FRAME_WIDTH - 1 : HDR_WIDTH + 2] != {7{DATA_CHAR_PATTERN}}) begin
+                    //     next_inv_pattern_count = inv_pattern_count + 1'b1;
+                    // end
 
                     next_txd = {MII_TERM, i_rx_coded[HDR_WIDTH + 8 +: 56]};
                     next_txc = 8'h80;
@@ -373,10 +388,41 @@ module BASER_66b_checker
             next_txc = 8'hFF;
         end
 
+        for (integer i = 0; i < CTRL_WIDTH; i = i + 1) begin
+
+            // Check Data patterns
+            if(!next_txc[i]) begin
+
+                // Fixed pattern
+                if(next_txd[i * 8 +: 8] != DATA_CHAR_PATTERN) begin
+                    inv_fixed_flag = 1'b1;
+                end
+                
+                // PRBS8 pattern
+                if(next_txd[i * 8 +: 8] == next_prbs_char) begin
+                    next_prbs_char = prbs8_gen(next_prbs_char);
+                end
+                else begin
+                    inv_prbs_flag = 1'b1;
+                    next_prbs_char = prbs8_gen(next_txd[i +: 8]);
+                end
+            end
+        end
+
+        // Skip the next 24 prbs characters for one MII line
+        repeat(3 * CTRL_WIDTH) begin
+            next_prbs_char = prbs8_gen(next_prbs_char);
+        end
+
+        next_inv_pattern_count =    (i_pattern_mode == FIXED)?  (inv_pattern_count + inv_fixed_flag ):
+                                    (i_pattern_mode == PRBS8)?  (inv_pattern_count + inv_prbs_flag  ):
+                                                                 inv_pattern_count                  ;
+
         next_inv_block_count = next_inv_pattern_count + next_inv_format_count + next_inv_sh_count;
     end
 
     always @(posedge clk or posedge i_rst) begin
+        // Check 66B blocks 1 clock cycle after checking 257B blocks
         if(i_valid)
             valid <= 1'b1;
         else
@@ -385,6 +431,8 @@ module BASER_66b_checker
         if(i_rst) begin
             txd                 <= '0;
             txc                 <= '0;
+
+            prbs_char           <= '0;
 
             block_count         <= '0;
             data_count          <= '0;
@@ -398,6 +446,8 @@ module BASER_66b_checker
             txd                 <= txd                  ;
             txc                 <= txc                  ;
 
+            prbs_char           <= prbs_char            ;
+
             block_count         <= block_count          ;
             data_count          <= data_count           ;
             ctrl_count          <= ctrl_count           ;
@@ -409,6 +459,8 @@ module BASER_66b_checker
         else begin
             txd                 <= next_txd                 ;
             txc                 <= next_txc                 ;
+
+            prbs_char           <= next_prbs_char           ;
 
             block_count         <= next_block_count         ;
             data_count          <= next_data_count          ;
@@ -429,5 +481,17 @@ module BASER_66b_checker
     assign o_inv_pattern_count  = inv_pattern_count ;
     assign o_inv_format_count   = inv_format_count  ;
     assign o_inv_sh_count       = inv_sh_count      ;
+    
+    function automatic reg [7:0] prbs8_gen
+    (
+        input [7:0] i_seed
+    );
+        reg [7:0] val                                               ;
+    
+        val[0]   = i_seed[1] ^ i_seed[2] ^ i_seed[3] ^ i_seed[7]    ;
+        val[7:1] = i_seed[6:0]                                      ;
+    
+        return val;
+    endfunction
 
 endmodule
