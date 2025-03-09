@@ -79,6 +79,11 @@ module mac_frame_generator #(
                             if(i < i_payload_length) begin
                                 // $display("pos: %d prbs char: %h", i, next_prbs_char);
                                 next_prbs_char = prbs8_gen(next_prbs_char);
+
+                                if(next_prbs_char == 8'hFD) begin
+                                    next_prbs_char = prbs8_gen(next_prbs_char);
+                                end
+
                                 payload_reg[(i*8) +:8]  = next_prbs_char;
                                 // $display("payload: %h", payload_reg[(i*8) +:8]);
                             end
@@ -151,7 +156,7 @@ module mac_frame_generator #(
             o_done          <= next_done                                                                                    ;
 
 
-            // $display("MAC REGISTER: %h", o_register);
+            $display("MAC REGISTER GENERATOR: %h", o_register);
             // $display("CRC: %h", crc);
         end
 
@@ -170,10 +175,20 @@ module mac_frame_generator #(
         input [7:0] i_seed
     );
         reg [7:0] val                                               ;
+        reg feedback;
+
+        feedback = i_seed[7] ^ (i_seed[6:0]==7'b0000000);
     
-        val[0]   = i_seed[1] ^ i_seed[2] ^ i_seed[3] ^ i_seed[7]    ;
-        val[7:1] = i_seed[6:0]                                      ;
-    
+        // val[0]   = i_seed[1] ^ i_seed[2] ^ i_seed[3] ^ i_seed[7]    ;
+        // val[7:1] = i_seed[6:0]                                      ;
+        val[0] = feedback;
+        val[1] = i_seed[0];
+        val[2] = i_seed[1] ^ feedback;
+        val[3] = i_seed[2] ^ feedback;
+        val[4] = i_seed[3] ^ feedback;
+        val[5] = i_seed[4];
+        val[6] = i_seed[5];
+        val[7] = i_seed[6];
         return val;
     endfunction
 

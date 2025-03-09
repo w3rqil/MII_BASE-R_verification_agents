@@ -49,6 +49,9 @@ module mac_checker #
     integer payload_counter; // Contador de bytes del payload
     logic [31:0] calculated_fcs;
     logic [31:0] calculated_crc32_v2;
+    logic prbs_lock;
+    logic prbs_lock_found;
+    logic padding_flag;
 
     // Archivo de log
     integer log_file;
@@ -60,6 +63,19 @@ module mac_checker #
         log_file = $fopen("D:/Escritorio/mac_checker.log", "w");
         if (log_file == 0) begin
             $display("Error: No se pudo abrir el archivo de log.");
+            $finish;
+        end
+    end
+
+    always @(posedge prbs_lock) begin
+        $fdisplay(log_file, "PRBS LOCKED");
+        prbs_lock_found = 1'b1;
+    end
+
+    always @(negedge prbs_lock) begin
+        if(prbs_lock_found) begin
+            $fdisplay(log_file, "PRBS UNLOCKED");
+            $fdisplay(log_file, "TEST FAILED");
             $finish;
         end
     end
@@ -84,7 +100,7 @@ module mac_checker #
             payload_size <= 0;
 
             $fdisplay(log_file, "\n=========================================\n");
-            $display("MAC REGISTER  : %h", i_rx_array_data);
+            $display("MAC REGISTER CHECKER: %h", i_rx_array_data);
 
             // Log del frame actual
             $fdisplay(log_file, "FRAME %d", counter);
@@ -133,10 +149,13 @@ module mac_checker #
 
             if(length_type <= 1500 && length_type >= 46) begin
                 payload_size = length_type;
+                padding_flag = 0;
             end else if(length_type < 46) begin 
                 payload_size = 46;
+                padding_flag = 1;
             end else begin
                 payload_size = -1;
+                padding_flag = 0;
             end
 
             // Verificar el payload del frame
@@ -159,7 +178,16 @@ module mac_checker #
                 // $fdisplay(log_file, "BIT %d: %h Counter %d", k, current_byte, payload_counter);
 
                 if(current_byte != TERM_CODE) begin
+
                     payload_counter = payload_counter + 1;
+                    prbs_lock = prbs8_check(current_byte, 8'hFF);
+
+                    if((payload_counter > length_type) && (payload_counter < 47) && padding_flag) begin
+                        
+                        if(current_byte != 8'h00) begin
+                            $fdisplay(log_file, "ERROR: PADDING IS NOT 0x00");
+                        end
+                    end
                 end else begin
                     $fdisplay(log_file, "TERMINATION CODE %h", current_byte);
                     payload_counter = payload_counter - 4; 
@@ -168,8 +196,16 @@ module mac_checker #
                     $fdisplay(log_file, "PAYLOAD COUNTER: %d", payload_counter);
                     break;
                 end
+
             end
-            
+
+            // if(prbs_lock) begin
+            //     $fdisplay(log_file, "PRBS LOCKED");
+            // end
+            // else begin
+            //     $fdisplay(log_file, "PRBS UNLOCKED");
+            // end
+
             $fdisplay(log_file, "PAYLOAD COUNTER: %d", payload_counter);
 
             if(payload_counter >= 46 && payload_counter <= 1500) begin 
@@ -320,6 +356,69 @@ module mac_checker #
         return ~crc_reg;
     endfunction
 
+    function reg prbs8_check
+    (
+        input [7:0] i_prbs,
+        input [7:0] i_seed
+    );
+        reg [7:0] expected_lfsr;
+        reg i_feedback;
+        reg feedback;
+        reg [7:0] temp;
+
+        reg [2:0] valid_count;
+        reg [3:0] invalid_count;
+    
+        reg lock;
+
+        begin
+            feedback = expected_lfsr[7] ^ (expected_lfsr[6:0] == 7'b0000000);
+            i_feedback = i_prbs[7] ^ (i_prbs[6:0] == 7'b0000000);
+
+            // $fdisplay(log_file, "I PRBS: %h", i_prbs);
+            // $fdisplay(log_file, "EXPECTED LFSR: %h", expected_lfsr);
+            if (i_prbs == expected_lfsr) begin
+                
+                temp = expected_lfsr;
+
+                expected_lfsr[0] = feedback;
+                expected_lfsr[1] = temp[0];
+                expected_lfsr[2] = temp[1] ^ feedback;
+                expected_lfsr[3] = temp[2] ^ feedback;
+                expected_lfsr[4] = temp[3] ^ feedback;
+                expected_lfsr[5] = temp[4];
+                expected_lfsr[6] = temp[5];
+                expected_lfsr[7] = temp[6];
+        
+                valid_count = valid_count + 1;
+                invalid_count = 0;
+        
+                if (valid_count + 1 == 3'd5) begin
+                    lock = 1'b1;
+                end
+
+                // $fdisplay(log_file, "VALID COUNT: %d", valid_count);
+            end else begin
+
+                expected_lfsr[0] = i_feedback;
+                expected_lfsr[1] = i_prbs[0];
+                expected_lfsr[2] = i_prbs[1] ^ i_feedback;
+                expected_lfsr[3] = i_prbs[2] ^ i_feedback;
+                expected_lfsr[4] = i_prbs[3] ^ i_feedback;
+                expected_lfsr[5] = i_prbs[4];
+                expected_lfsr[6] = i_prbs[5];
+                expected_lfsr[7] = i_prbs[6];
+        
+                invalid_count = invalid_count + 1;
+                valid_count = 0;
+                
+                if (invalid_count == 4'd10) begin
+                    lock = 1'b0;
+                end
+            end
+            prbs8_check = lock;
+        end
+    endfunction
 
 endmodule
 
