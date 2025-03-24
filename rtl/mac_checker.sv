@@ -180,14 +180,18 @@ module mac_checker #
                 if(current_byte != TERM_CODE) begin
 
                     payload_counter = payload_counter + 1;
-                    prbs_lock = prbs8_check(current_byte, 8'hFF);
 
                     if((payload_counter > length_type) && (payload_counter < 47) && padding_flag) begin
                         
                         if(current_byte != 8'h00) begin
                             $fdisplay(log_file, "ERROR: PADDING IS NOT 0x00");
                         end
+                        
                     end
+                    else begin
+                        prbs_lock = prbs8_check(current_byte, 8'hFF);
+                    end
+
                 end else begin
                     $fdisplay(log_file, "TERMINATION CODE %h", current_byte);
                     payload_counter = payload_counter - 4; 

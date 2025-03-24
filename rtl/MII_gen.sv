@@ -18,6 +18,7 @@ module MII_gen
     input wire  [PACKET_MAX_BITS-1:0] i_register                                                                        ,
     input wire  [7: 0]                i_mode                                                                            ,
     input wire  [15:0]                i_payload_length                                                                  ,
+    input wire  [7:0]                 i_intergap                                                                        ,
     output wire                       o_txValid                                                                         ,
     output wire [63:0]                o_mii_tx_d                                                                        ,
     output wire [7:0 ]                o_mii_tx_c
@@ -62,7 +63,7 @@ module MII_gen
                 next_tx_data = {8{IDLE_CODE}}                                                                           ;
                 next_tx_control = 8'hFF                                                                                 ;
                 //outValid = 1'b0;                                                                      
-                if ((counter >= 12)) begin                                                                      
+                if ((counter >= i_intergap)) begin                                                                      
                     next_tx_data = {i_register[63:8], START_CODE}                                                       ;
                     next_tx_control = 8'h01                                                                             ;
 
@@ -121,7 +122,7 @@ module MII_gen
                 //end
             end
             DONE: begin
-                next_tx_data = {{7{IDLE_CODE}}, 8'hFD}                                                                  ;
+                next_tx_data = {{7{IDLE_CODE}}, EOF_CODE}                                                                  ;
 
                 next_tx_control = 8'h01                                                                                 ;
                 next_counter = 7                                                                                        ; // sended 7 idle codes

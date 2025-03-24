@@ -1,6 +1,6 @@
 `timescale 1ns/100ps
 
-`define SYNTHESIS
+`define SIMULATION
 
 module mii_checker 
 #(
@@ -149,8 +149,7 @@ module mii_checker
                 if (!found_start) begin
                     if (i_tx_ctrl[i] == 1'b1 && i_tx_data[i*8 +: 8] == START_CODE) begin
                         // $display("MII ARRAY DATA: %h", array_data);
-                        //next_intergap_counter = intergap_counter + i; 
-                        valid = 1'b0;
+                        next_intergap_counter = intergap_counter + i;
                         next_payload_counter = payload_counter + (7-i); 
                         found_start = 1'b1; 
                         capture_enable = 1'b1;
@@ -162,7 +161,7 @@ module mii_checker
             end
 
             if(found_start) begin
-                if (intergap_counter < MIN_INTERGAP || intergap_counter > MAX_INTERGAP) begin
+                if (intergap_counter < MIN_INTERGAP) begin
                     itg_error = 1'b1;
                 end
                 next_state = COUNT_DATA;
@@ -216,7 +215,7 @@ module mii_checker
         end
         if (itg_error) begin
             $display("----------------------------------------------------------");
-            $display("[%0t ns] ERROR: Intergap", $time);
+            $display("[%0t ns] ERROR: Intergap fuera de rango detectado", $time);
             $display("Bytes enviados: %0d", intergap_counter);
             $display("----------------------------------------------------------");
         end

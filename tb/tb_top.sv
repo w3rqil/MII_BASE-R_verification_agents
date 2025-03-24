@@ -25,6 +25,7 @@ module tb_mac_mii_checker;
     reg [47:0] i_dest_address;
     reg [47:0] i_src_address;
     reg [15:0] i_payload_length;
+    reg [7:0] i_intergap;
     reg [7:0] i_payload [PAYLOAD_MAX_SIZE-1:0];
     reg [7:0] i_prbs_seed;
     reg [7:0] i_mode;
@@ -55,6 +56,7 @@ module tb_mac_mii_checker;
         .i_dest_address(i_dest_address),
         .i_src_address(i_src_address),
         .i_payload_length(i_payload_length),
+        .i_intergap(i_intergap),
         .i_payload(i_payload),
         .i_prbs_seed(i_prbs_seed),
         .i_mode(i_mode),
@@ -115,6 +117,8 @@ module tb_mac_mii_checker;
         i_rst_n = 0;
         i_prbs_rst_n = 0;
         i_start = 0;
+        i_payload_length = 0;
+        i_intergap = 0;
         i_dest_address = 48'hFFFFFFFFFFFF;  // Broadcast address
         i_src_address = 48'h123456789ABC;   // Example source address
         i_prbs_seed = 8'hFF;
@@ -129,7 +133,12 @@ module tb_mac_mii_checker;
 
         // Test Case 1: Simple Frame Generation
         $display("Starting Test Case 1: Simple Frame Generation");
-        simulate_frame(8);
+        preload_payload(1, '{8'hAA});
+        simulate_frame(1, 12);
+        #200;
+        @(posedge valid_mac);
+
+        simulate_frame(0, 12);
         #200;
         @(posedge valid_mac);
 
@@ -142,24 +151,28 @@ module tb_mac_mii_checker;
                             8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA, 8'hAA,
                             8'hAA, 8'hAA, 8'hAA, 8'hAA}); // Preload payload with 0xAA
         $display("Starting Test Case 2: Full Payload");
-        simulate_frame(64);
+        simulate_frame(64, 12);
         #200;
         @(posedge valid_mac);
 
-        // Test Case 3: Interruption Error
+        // Test Case 3: Fixed payload
         preload_payload(16, '{8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF, 8'h11, 8'h22, 8'h33,
                               8'h44, 8'h55, 8'h66, 8'h77, 8'h88, 8'h99, 8'hAA, 8'hBB});
         i_mode = 8'd1; // Fixed payload mode
         $display("Starting Test Case 3: Fixed payload data");
-        simulate_frame(16);
+        simulate_frame(46, 11);
         #200;
         @(posedge valid_mac);
 
         // Test Case 4: Invalid Frame
-        preload_payload(6, '{8'hAA, 8'hBB, 8'hCC, 8'hDD, 8'hEE, 8'hFF}); // Too short
+        preload_payload(1, '{8'hAA}); // Too short
         i_mode = 8'd2; // No padding mode
         $display("Starting Test Case 4: Invalid Frame");
-        simulate_frame(6);
+        simulate_frame(1, 12);
+        #200;
+        @(posedge valid_mac);
+        
+        simulate_frame(0, 12);
         #200;
         @(posedge valid_mac);
 
@@ -167,26 +180,40 @@ module tb_mac_mii_checker;
 
         $display("Starting Test Case 5: Max size payload");
         i_mode = 8'd1; // Fixed payload modes
-        simulate_frame(1500);
+        simulate_frame(1500, 12);
+        #200;
+        @(posedge valid_mac);
+
+        simulate_frame(1501, 12);
         #200;
         @(posedge valid_mac);
 
         // Test Case 6: PRBS8 Frame Generation
         i_mode = 8'd3;
         i_prbs_rst_n = 1'b1;
-        simulate_frame(64);
+        simulate_frame(64, 12);
 
         @(posedge valid_mac);
-        simulate_frame(128);
+        simulate_frame(128, 12);
 
         @(posedge valid_mac);
 
-        i_prbs_rst_n = 1'b0; // reset prbs pattern
         #20;
         @(posedge clk);
-        i_prbs_rst_n = 1'b1;
-        simulate_frame(8);
+        simulate_frame(8, 200);
 
+        @(posedge valid_mac);
+        
+        // Test Case 7: Intergap less than 12 bytes
+        $display("Starting Test Case 7: Intergap less than 12 bytes");
+        i_mode = 8'd3;
+        i_prbs_rst_n = 1'b1;
+        simulate_frame(64, 1);
+        #200;
+        @(posedge valid_mac);
+        
+        simulate_frame(45, 1);
+        #200;
         @(posedge valid_mac);
 
         // Wait for final outputs and stop simulation
@@ -216,9 +243,10 @@ module tb_mac_mii_checker;
     endtask
 
     // Task to simulate frame transmission
-    task simulate_frame(input int payload_length);
+    task simulate_frame(input int payload_length, input int intergap);
         begin
             i_payload_length = payload_length;
+            i_intergap = intergap;
             i_start = 1; // Start frame generation
             repeat (2) @(posedge clk);
             i_start = 0; // Stop frame generation

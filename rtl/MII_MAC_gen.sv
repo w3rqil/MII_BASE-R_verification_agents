@@ -9,6 +9,7 @@ module mac_mii_top #(
     input wire [47:0]  i_dest_address                           , // Destination MAC address
     input wire [47:0]  i_src_address                            , // Source MAC address
     input wire [15:0]  i_payload_length                         ,
+    input wire [7:0]    i_intergap                              ,
     input wire [7:0]   i_payload         [PAYLOAD_MAX_SIZE-1:0]   ,
     input wire [7:0]   i_prbs_seed,
     input wire [7:0]   i_mode                              ,
@@ -54,6 +55,7 @@ module mac_mii_top #(
         .i_register(register),
         .i_mode(i_mode),
         .i_payload_length(i_payload_length),
+        .i_intergap(i_intergap),
         .o_txValid (o_txValid),
         .o_mii_tx_d(mii_tx_data),      // Unused in this version, processed internally
         .o_mii_tx_c(mii_tx_ctrl)        // Control signal from MII_gen
