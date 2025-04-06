@@ -11,4 +11,4 @@ The project was developed by FCEFyN - UNC engineering students:
 
 - [Mansilla, Josías Leonel](https://github.com/w3rqil)
 - [Olocco, Launeano](https://github.com/LaureanoOlocco)
-- [Zúñiga, Ruben](https://github.com/Ruben-Zuniga)
+- [Zúñiga, Guillermo Rubén Darío ](https://github.com/Ruben-Zuniga)
