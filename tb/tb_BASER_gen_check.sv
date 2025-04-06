@@ -1,5 +1,5 @@
 /*
-    Conexion entre el generador y el checker de señal 1.6TBASE-R
+    Conexion entre el generador y el checker de señal 1.6TBASE-R.
 */
 
 `timescale 1ns/100ps
