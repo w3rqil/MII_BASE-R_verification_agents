@@ -1,5 +1,7 @@
 # 1.6TBASE-R signal checker
 
+![img](img/BASER_checker_block_diagram.png)
+
 ## Descripción General
 
 Este proyecto consiste en dos agentes de verificación -`BASER_257b_checker` y `BASER_66b_checker`- que analizan las tramas de PCS 256b/257b y 64b/66b respectivamente. Estos poseen contadores que indican la cantidad de tramas inválidas recibidas.
